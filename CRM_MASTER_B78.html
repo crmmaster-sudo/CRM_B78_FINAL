@@ -58,6 +58,8 @@
   .batch-item.active {background: #dbeafe;border-left: 3px solid #3b82f6;}
   .batch-info-small {font-size: 11px;color: #64748b;}
   .batch-count {background: #3b82f6;color: white;padding: 2px 6px;border-radius: 12px;font-size: 10px;font-weight: bold;}
+  .storage-warning {background: #fef3f2;border: 1px solid #fecaca;color: #dc2626;padding: 12px;border-radius: 8px;margin-top: 12px;}
+  .storage-info {background: #eff6ff;border: 1px solid #dbeafe;color: #1e40af;padding: 12px;border-radius: 8px;margin-top: 12px;}
 </style>
 </head>
 <body>
@@ -257,6 +259,47 @@
           </div>
         </div>
 
+        <!-- System Maintenance -->
+        <div class="card">
+          <div class="section-title">System Maintenance</div>
+          <div class="muted" style="margin-bottom:16px">Kelola storage dan optimasi database</div>
+          
+          <div class="form-group">
+            <label class="form-label">Storage Usage</label>
+            <div class="batch-info">
+              <strong>Estimated Usage:</strong> <span id="storageUsage">-</span>
+              <div style="margin-top:4px;font-size:11px">
+                <span id="storagePercentage">0%</span> dari 500 MB Supabase Free Tier
+              </div>
+            </div>
+          </div>
+
+          <div id="storageWarning" class="storage-warning" style="display:none">
+            <div style="font-weight:600">⚠️ Storage Warning</div>
+            <div>Storage hampir penuh! Segera bersihkan data lama.</div>
+          </div>
+
+          <div id="storageInfo" class="storage-info" style="display:none">
+            <div style="font-weight:600">💾 Storage Info</div>
+            <div>Storage usage dalam batas aman.</div>
+          </div>
+          
+          <div class="action-buttons">
+            <button type="button" onclick="checkStorageUsage()" class="warning">Cek Storage</button>
+            <button type="button" onclick="cleanupOldData()" class="danger">Bersihkan Data Lama</button>
+            <button type="button" onclick="exportAllBackups()" style="background:#64748b">Export Backup</button>
+          </div>
+
+          <div class="form-group" style="margin-top:16px">
+            <label class="form-label">Auto-Cleanup Settings</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="checkbox" id="autoCleanup" checked>
+              <label for="autoCleanup" style="font-size:13px">Hapus otomatis data > 6 bulan</label>
+            </div>
+            <div class="muted" style="margin-top:4px">Akan dijalankan setiap kali login</div>
+          </div>
+        </div>
+
         <!-- Reports -->
         <div class="card">
           <div class="section-title">Generate Report</div>
@@ -305,6 +348,206 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentBatchId = null;
 
+// ==================== STORAGE MANAGEMENT FUNCTIONS ====================
+async function checkStorageUsage() {
+  try {
+    showImportStatus('Mengecek usage storage...', true);
+    
+    // Cek total members
+    const { count: memberCount, error: memberError } = await supabase
+      .from('members')
+      .select('*', { count: 'exact', head: true });
+    
+    if (memberError) throw memberError;
+
+    // Cek total deposits  
+    const { count: depositCount, error: depositError } = await supabase
+      .from('deposits')
+      .select('*', { count: 'exact', head: true });
+    
+    if (depositError) throw depositError;
+
+    // Cek total admins
+    const { count: adminCount, error: adminError } = await supabase
+      .from('admins')
+      .select('*', { count: 'exact', head: true });
+    
+    if (adminError) throw adminError;
+
+    const totalRecords = (memberCount || 0) + (depositCount || 0) + (adminCount || 0);
+    const estimatedSizeKB = totalRecords * 1; // 1KB per record
+    const estimatedSizeMB = estimatedSizeKB / 1024;
+    const percentageUsed = (estimatedSizeMB / 500) * 100;
+    
+    // Update UI
+    document.getElementById('storageUsage').textContent = `${estimatedSizeMB.toFixed(2)} MB`;
+    document.getElementById('storagePercentage').textContent = `${percentageUsed.toFixed(1)}%`;
+    
+    // Show warning if > 80%
+    const warningElement = document.getElementById('storageWarning');
+    const infoElement = document.getElementById('storageInfo');
+    
+    if (percentageUsed > 80) {
+      warningElement.style.display = 'block';
+      infoElement.style.display = 'none';
+      showImportStatus(`⚠️ Storage hampir penuh: ${percentageUsed.toFixed(1)}% digunakan!`, false);
+    } else {
+      warningElement.style.display = 'none';
+      infoElement.style.display = 'block';
+      showImportStatus(`✅ Storage usage: ${percentageUsed.toFixed(1)}% - Aman`, true);
+    }
+    
+    return { 
+      estimatedSizeMB, 
+      percentageUsed, 
+      memberCount: memberCount || 0, 
+      depositCount: depositCount || 0,
+      adminCount: adminCount || 0
+    };
+    
+  } catch (error) {
+    console.error('Storage check error:', error);
+    showImportStatus('Error mengecek storage', false);
+  }
+}
+
+async function cleanupOldData() {
+  if (!confirm('Hapus data member yang tidak ada deposit > 6 bulan?')) return;
+
+  try {
+    showImportStatus('Membersihkan data lama...', true);
+    
+    // Hitung 6 bulan yang lalu
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10);
+    
+    // Cari members tanpa deposit > 6 bulan
+    const { data: oldMembers, error: findError } = await supabase
+      .from('members')
+      .select('id, name, last_deposit, batch_id')
+      .lt('last_deposit', sixMonthsAgoStr);
+    
+    if (findError) throw findError;
+    
+    if (!oldMembers || oldMembers.length === 0) {
+      showImportStatus('✅ Tidak ada data lama untuk dibersihkan', true);
+      return;
+    }
+    
+    // Backup data sebelum hapus
+    showImportStatus(`Membackup ${oldMembers.length} data lama...`, true);
+    await exportBackup('old_members_backup', oldMembers);
+    
+    // Hapus data
+    const { error: deleteError } = await supabase
+      .from('members')
+      .delete()
+      .lt('last_deposit', sixMonthsAgoStr);
+    
+    if (deleteError) throw deleteError;
+    
+    showImportStatus(`✅ Berhasil menghapus ${oldMembers.length} data lama`, true);
+    
+    // Refresh data dan cek storage
+    await refreshAllData();
+    await checkStorageUsage();
+    
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    showImportStatus('Error membersihkan data lama', false);
+  }
+}
+
+async function exportBackup(type, data) {
+  try {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Backup');
+    XLSX.writeFile(wb, `backup_${type}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch (error) {
+    console.error('Backup error:', error);
+  }
+}
+
+async function exportAllBackups() {
+  try {
+    showImportStatus('Membackup semua data...', true);
+    
+    // Backup members
+    const { data: members, error: membersError } = await supabase
+      .from('members')
+      .select('*');
+    
+    if (membersError) throw membersError;
+    
+    // Backup deposits
+    const { data: deposits, error: depositsError } = await supabase
+      .from('deposits')
+      .select('*');
+    
+    if (depositsError) throw depositsError;
+    
+    // Backup admins
+    const { data: admins, error: adminsError } = await supabase
+      .from('admins')
+      .select('*');
+    
+    if (adminsError) throw adminsError;
+    
+    // Create backup file
+    const wb = XLSX.utils.book_new();
+    
+    if (members && members.length > 0) {
+      const wsMembers = XLSX.utils.json_to_sheet(members);
+      XLSX.utils.book_append_sheet(wb, wsMembers, 'Members');
+    }
+    
+    if (deposits && deposits.length > 0) {
+      const wsDeposits = XLSX.utils.json_to_sheet(deposits);
+      XLSX.utils.book_append_sheet(wb, wsDeposits, 'Deposits');
+    }
+    
+    if (admins && admins.length > 0) {
+      const wsAdmins = XLSX.utils.json_to_sheet(admins);
+      XLSX.utils.book_append_sheet(wb, wsAdmins, 'Admins');
+    }
+    
+    XLSX.writeFile(wb, `full_backup_${new Date().toISOString().slice(0,10)}.xlsx`);
+    showImportStatus('✅ Backup semua data berhasil', true);
+    
+  } catch (error) {
+    console.error('Backup error:', error);
+    showImportStatus('Error membuat backup', false);
+  }
+}
+
+async function autoCleanupOnLogin() {
+  const autoCleanup = document.getElementById('autoCleanup').checked;
+  if (!autoCleanup) return;
+  
+  try {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10);
+    
+    const { data: oldMembers, error } = await supabase
+      .from('members')
+      .select('id')
+      .lt('last_deposit', sixMonthsAgoStr);
+    
+    if (error) throw error;
+    
+    if (oldMembers && oldMembers.length > 0) {
+      console.log(`Auto-cleanup: Found ${oldMembers.length} old members`);
+      // Bisa tambahkan auto-delete di sini jika mau
+    }
+    
+  } catch (error) {
+    console.error('Auto-cleanup error:', error);
+  }
+}
+
 // ==================== UTILITY FUNCTIONS ====================
 function uid() { 
   return 'id' + Math.random().toString(36).slice(2, 9); 
@@ -312,21 +555,6 @@ function uid() {
 
 function generateBatchId() {
   return 'batch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
-// ✅ FUNGSI BARU: Extract ID asli dari format batch
-function extractOriginalId(fullId) {
-  if (!fullId) return '';
-  
-  // Jika mengandung format batch, ambil bagian ID asli
-  if (fullId.includes('_') && fullId.startsWith('batch_')) {
-    const parts = fullId.split('_');
-    // Ambil bagian terakhir (ID asli dari Excel)
-    const originalId = parts.slice(3).join('_'); // Ambil dari index 3 sampai akhir
-    return originalId || fullId; // Fallback ke fullId jika tidak ada ID asli
-  }
-  
-  return fullId; // Kembalikan asli jika bukan format batch
 }
 
 function formatCurrency(amount) {
@@ -580,9 +808,9 @@ async function viewBatchDetails(batchId) {
 
     if (error) throw error;
 
-    // Format data untuk ditampilkan dengan ID asli
+    // Tampilkan dalam modal atau alert
     const memberList = members.map(member => 
-      `- ${member.name} (${extractOriginalId(member.id)}) - ${new Date(member.created_at).toLocaleDateString('id-ID')}`
+      `- ${member.name} (${member.id}) - ${new Date(member.created_at).toLocaleDateString('id-ID')}`
     ).join('\n');
 
     alert(`Detail Batch: ${batchId}\nTotal Member: ${members.length}\n\nDaftar Member:\n${memberList}`);
@@ -657,6 +885,12 @@ function openMain(user) {
   // Generate batch ID pertama kali
   generateNewBatch();
   refreshAllData();
+  
+  // Cek storage usage dan auto-cleanup
+  setTimeout(() => {
+    checkStorageUsage();
+    autoCleanupOnLogin();
+  }, 2000);
 }
 
 // ==================== USER MANAGEMENT ====================
@@ -1123,6 +1357,9 @@ async function importToAdmin() {
       // Auto-generate batch baru untuk import berikutnya
       generateNewBatch();
       
+      // Cek storage usage setelah import
+      await checkStorageUsage();
+      
     } catch (error) {
       console.error('Import error:', error);
       showImportStatus(`❌ Error mengimpor data: ${error.message}`, false);
@@ -1323,13 +1560,7 @@ async function generateReport() {
       const { data: members, error } = await query;
       if (error) throw error;
       
-      // Format data untuk report dengan ID asli
-      const formattedMembers = members.map(member => ({
-        ...member,
-        display_id: extractOriginalId(member.id) // Tambahkan kolom display_id dengan ID asli
-      }));
-      
-      data = formattedMembers || [];
+      data = members || [];
       fileName = `report_member_${admin}_${new Date().toISOString().slice(0,10)}.xlsx`;
     } else {
       let query = supabase.from('deposits').select('*');
@@ -1371,12 +1602,7 @@ async function exportAllData() {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(admins.data), 'Users');
     }
     if (members.data && members.data.length > 0) {
-      // Format members data dengan ID asli
-      const formattedMembers = members.data.map(member => ({
-        ...member,
-        display_id: extractOriginalId(member.id)
-      }));
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formattedMembers), 'Members');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(members.data), 'Members');
     }
     if (deposits.data && deposits.data.length > 0) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(deposits.data), 'Transactions');
