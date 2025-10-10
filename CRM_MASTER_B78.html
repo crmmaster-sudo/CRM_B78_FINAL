@@ -314,6 +314,21 @@ function generateBatchId() {
   return 'batch_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
+// ✅ FUNGSI BARU: Extract ID asli dari format batch
+function extractOriginalId(fullId) {
+  if (!fullId) return '';
+  
+  // Jika mengandung format batch, ambil bagian ID asli
+  if (fullId.includes('_') && fullId.startsWith('batch_')) {
+    const parts = fullId.split('_');
+    // Ambil bagian terakhir (ID asli dari Excel)
+    const originalId = parts.slice(3).join('_'); // Ambil dari index 3 sampai akhir
+    return originalId || fullId; // Fallback ke fullId jika tidak ada ID asli
+  }
+  
+  return fullId; // Kembalikan asli jika bukan format batch
+}
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -565,9 +580,9 @@ async function viewBatchDetails(batchId) {
 
     if (error) throw error;
 
-    // Tampilkan dalam modal atau alert
+    // Format data untuk ditampilkan dengan ID asli
     const memberList = members.map(member => 
-      `- ${member.name} (${member.id}) - ${new Date(member.created_at).toLocaleDateString('id-ID')}`
+      `- ${member.name} (${extractOriginalId(member.id)}) - ${new Date(member.created_at).toLocaleDateString('id-ID')}`
     ).join('\n');
 
     alert(`Detail Batch: ${batchId}\nTotal Member: ${members.length}\n\nDaftar Member:\n${memberList}`);
@@ -1308,7 +1323,13 @@ async function generateReport() {
       const { data: members, error } = await query;
       if (error) throw error;
       
-      data = members || [];
+      // Format data untuk report dengan ID asli
+      const formattedMembers = members.map(member => ({
+        ...member,
+        display_id: extractOriginalId(member.id) // Tambahkan kolom display_id dengan ID asli
+      }));
+      
+      data = formattedMembers || [];
       fileName = `report_member_${admin}_${new Date().toISOString().slice(0,10)}.xlsx`;
     } else {
       let query = supabase.from('deposits').select('*');
@@ -1350,7 +1371,12 @@ async function exportAllData() {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(admins.data), 'Users');
     }
     if (members.data && members.data.length > 0) {
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(members.data), 'Members');
+      // Format members data dengan ID asli
+      const formattedMembers = members.data.map(member => ({
+        ...member,
+        display_id: extractOriginalId(member.id)
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formattedMembers), 'Members');
     }
     if (deposits.data && deposits.data.length > 0) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(deposits.data), 'Transactions');
