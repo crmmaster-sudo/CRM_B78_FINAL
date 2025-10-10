@@ -185,6 +185,21 @@ function uid() {
   return 'id' + Math.random().toString(36).slice(2, 9); 
 }
 
+// ✅ FUNGSI BARU: Extract ID asli dari format batch
+function extractOriginalId(fullId) {
+  if (!fullId) return '';
+  
+  // Jika mengandung format batch, ambil bagian ID asli
+  if (fullId.includes('_') && fullId.startsWith('batch_')) {
+    const parts = fullId.split('_');
+    // Ambil bagian terakhir (ID asli dari Excel)
+    const originalId = parts.slice(3).join('_');
+    return originalId || fullId;
+  }
+  
+  return fullId; // Kembalikan asli jika bukan format batch
+}
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -306,7 +321,8 @@ async function refreshMembers() {
   const statusFilter = document.getElementById('statusFilter')?.value || "";
 
   const filtered = state.members.filter(m => {
-    const matchKeyword = m.id.toLowerCase().includes(keyword) || m.name.toLowerCase().includes(keyword);
+    const originalId = extractOriginalId(m.id);
+    const matchKeyword = originalId.toLowerCase().includes(keyword) || m.name.toLowerCase().includes(keyword);
     const status = getMemberStatus(m.last_deposit);
     const matchStatus = !statusFilter || status === statusFilter;
     return matchKeyword && matchStatus;
@@ -326,7 +342,7 @@ async function refreshMembers() {
     
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${m.id}</td>
+      <td>${extractOriginalId(m.id)}</td>  <!-- ✅ UBAH: Tampilkan ID asli saja -->
       <td>${m.name}</td>
       <td>${m.phone}</td>
       <td>${m.last_deposit}</td>
@@ -347,7 +363,7 @@ async function refreshMembers() {
   const sel = document.getElementById('depositMember');
   sel.innerHTML = '<option value="">-- pilih --</option>';
   state.members.forEach(m => {
-    sel.insertAdjacentHTML('beforeend', `<option value="${m.id}">${m.id} - ${m.name}</option>`);
+    sel.insertAdjacentHTML('beforeend', `<option value="${m.id}">${extractOriginalId(m.id)} - ${m.name}</option>`);  <!-- ✅ UBAH: Tampilkan ID asli di dropdown -->
   });
 }
 
@@ -466,7 +482,8 @@ function refreshDeposits() {
 
   sortedDeposits.forEach(d => {
     const tr = document.createElement('tr');
-    const memberDisplay = d.member_id.startsWith('manual_') ? d.member_name : d.member_id;
+    // ✅ UBAH: Tampilkan ID asli untuk member yang bukan manual
+    const memberDisplay = d.member_id.startsWith('manual_') ? d.member_name : extractOriginalId(d.member_id);
     
     tr.innerHTML = `
       <td>${d.date}</td>
@@ -646,8 +663,9 @@ function resetFilter() {
 function exportData() {
   const wb = XLSX.utils.book_new();
   
+  // ✅ UBAH: Export dengan ID asli
   const membersSheet = XLSX.utils.json_to_sheet(state.members.map(m => ({
-    ID: m.id,
+    ID: extractOriginalId(m.id),  // Tampilkan ID asli di export
     Nama: m.name,
     HP: m.phone,
     LastDeposit: m.last_deposit,
@@ -658,7 +676,7 @@ function exportData() {
   
   const depositsSheet = XLSX.utils.json_to_sheet(state.deposits.map(d => ({
     ID: d.id,
-    Member: d.member_name,
+    Member: d.member_id.startsWith('manual_') ? d.member_name : extractOriginalId(d.member_id),  // Tampilkan ID asli di export
     Amount: d.amount,
     Date: d.date
   })));
@@ -750,5 +768,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
-
-
