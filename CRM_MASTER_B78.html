@@ -259,7 +259,42 @@
           </div>
         </div>
 
-        <!-- System Maintenance -->
+        <!-- Generate Report (DIPINDAHKAN KE ATAS) -->
+        <div class="card">
+          <div class="section-title">Generate Report</div>
+          <div class="muted" style="margin-bottom:16px">Buat laporan data system</div>
+          
+          <div class="form-group">
+            <label class="form-label">Tipe Report</label>
+            <select id="reportType">
+              <option value="database">Data Member</option>
+              <option value="omset">Data Transaksi</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">User</label>
+            <select id="reportAdmin">
+              <option value="__all">Semua User</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Periode</label>
+            <select id="reportRange">
+              <option value="daily">Harian</option>
+              <option value="monthly">Bulanan</option>
+              <option value="yearly">Tahunan</option>
+            </select>
+          </div>
+          
+          <div class="action-buttons">
+            <button type="button" onclick="generateReport()">Download Report</button>
+            <button type="button" onclick="refreshAllData()" class="success">Refresh Data</button>
+          </div>
+        </div>
+
+        <!-- System Maintenance (DIPINDAHKAN KE BAWAH) -->
         <div class="card">
           <div class="section-title">System Maintenance</div>
           <div class="muted" style="margin-bottom:16px">Kelola storage dan optimasi database</div>
@@ -297,41 +332,6 @@
               <label for="autoCleanup" style="font-size:13px">Hapus otomatis data > 6 bulan</label>
             </div>
             <div class="muted" style="margin-top:4px">Akan dijalankan setiap kali login</div>
-          </div>
-        </div>
-
-        <!-- Reports -->
-        <div class="card">
-          <div class="section-title">Generate Report</div>
-          <div class="muted" style="margin-bottom:16px">Buat laporan data system</div>
-          
-          <div class="form-group">
-            <label class="form-label">Tipe Report</label>
-            <select id="reportType">
-              <option value="database">Data Member</option>
-              <option value="omset">Data Transaksi</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">User</label>
-            <select id="reportAdmin">
-              <option value="__all">Semua User</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Periode</label>
-            <select id="reportRange">
-              <option value="daily">Harian</option>
-              <option value="monthly">Bulanan</option>
-              <option value="yearly">Tahunan</option>
-            </select>
-          </div>
-          
-          <div class="action-buttons">
-            <button type="button" onclick="generateReport()">Download Report</button>
-            <button type="button" onclick="refreshAllData()" class="success">Refresh Data</button>
           </div>
         </div>
       </div>
