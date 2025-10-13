@@ -244,6 +244,15 @@
           <!-- Batch History Section -->
           <div id="batchHistorySection" style="display:none">
             <div class="subsection-title" style="margin-top:20px">History Batch Import</div>
+            
+            <!-- Filter controls untuk batch history -->
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+              <input type="date" id="batchFromDate" style="width:140px;padding:6px;font-size:12px">
+              <input type="date" id="batchToDate" style="width:140px;padding:6px;font-size:12px">
+              <button type="button" onclick="filterBatchByDate()" style="padding:6px 12px;font-size:12px">Filter</button>
+              <button type="button" onclick="refreshBatchHistory()" style="padding:6px 12px;font-size:12px">Reset</button>
+            </div>
+            
             <div class="batch-history" id="batchHistoryList">
               <!-- Daftar batch akan muncul di sini -->
             </div>
@@ -259,7 +268,7 @@
           </div>
         </div>
 
-        <!-- Generate Report (DIPINDAHKAN KE ATAS) -->
+        <!-- Generate Report -->
         <div class="card">
           <div class="section-title">Generate Report</div>
           <div class="muted" style="margin-bottom:16px">Buat laporan data system</div>
@@ -294,7 +303,7 @@
           </div>
         </div>
 
-        <!-- System Maintenance (DIPINDAHKAN KE BAWAH) -->
+        <!-- System Maintenance -->
         <div class="card">
           <div class="section-title">System Maintenance</div>
           <div class="muted" style="margin-bottom:16px">Kelola storage dan optimasi database</div>
@@ -715,7 +724,7 @@ function updateBatchDisplay() {
   document.getElementById('currentBatchId').textContent = currentBatchId || '-';
 }
 
-// ==================== BATCH HISTORY & CHECKING ====================
+// ==================== BATCH HISTORY & CHECKING (FIXED VERSION) ====================
 async function showBatchHistory() {
   document.getElementById('batchHistorySection').style.display = 'block';
   await refreshBatchHistory();
@@ -729,7 +738,7 @@ async function refreshBatchHistory() {
   try {
     showImportStatus('Memuat history batch...', true);
     
-    // Query untuk mendapatkan semua batch yang ada
+    // Query untuk mendapatkan semua batch yang ada - TANPA FILTER TANGGAL
     const { data: batches, error } = await supabase
       .from('members')
       .select('batch_id, created_at, admin_username, id')
@@ -759,8 +768,106 @@ async function refreshBatchHistory() {
     
     if (batchList.length === 0) {
       batchHistoryList.innerHTML = '<div style="text-align:center;padding:20px;color:#666">Belum ada data batch</div>';
+      showImportStatus('Tidak ada data batch ditemukan', true);
       return;
     }
+
+    // Urutkan berdasarkan tanggal created_at (yang paling baru di atas)
+    batchList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    batchHistoryList.innerHTML = '';
+    
+    batchList.forEach(batch => {
+      const batchItem = document.createElement('div');
+      batchItem.className = 'batch-item';
+      if (batch.batch_id === currentBatchId) {
+        batchItem.classList.add('active');
+      }
+      
+      const batchDate = new Date(batch.created_at);
+      const now = new Date();
+      const isToday = batchDate.toDateString() === now.toDateString();
+      
+      batchItem.innerHTML = `
+        <div>
+          <div style="font-weight:500">${batch.batch_id}</div>
+          <div class="batch-info-small">
+            ${batchDate.toLocaleString('id-ID')} | 
+            Admin: ${batch.admin_username || 'Unknown'}
+            ${isToday ? ' <span style="color:#10b981;">(Hari Ini)</span>' : ''}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="batch-count">${batch.count} member</span>
+          <button onclick="viewBatchDetails('${batch.batch_id}')" style="padding:4px 8px;font-size:10px">Detail</button>
+          <button onclick="useThisBatch('${batch.batch_id}')" style="padding:4px 8px;font-size:10px;background:#10b981">Pakai</button>
+        </div>
+      `;
+      
+      batchHistoryList.appendChild(batchItem);
+    });
+
+    showImportStatus(`Ditemukan ${batchList.length} batch (termasuk hari sebelumnya)`, true);
+    
+  } catch (error) {
+    console.error('Error loading batch history:', error);
+    showImportStatus('Error memuat history batch: ' + error.message, false);
+  }
+}
+
+// ==================== FILTER BATCH BY DATE ====================
+async function filterBatchByDate() {
+  const fromDate = document.getElementById('batchFromDate').value;
+  const toDate = document.getElementById('batchToDate').value;
+  
+  try {
+    showImportStatus('Memfilter batch berdasarkan tanggal...', true);
+    
+    let query = supabase
+      .from('members')
+      .select('batch_id, created_at, admin_username, id')
+      .not('batch_id', 'is', null);
+
+    // Tambahkan filter tanggal jika ada
+    if (fromDate) {
+      query = query.gte('created_at', fromDate + 'T00:00:00');
+    }
+    if (toDate) {
+      query = query.lte('created_at', toDate + 'T23:59:59');
+    }
+
+    const { data: batches, error } = await query
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Group by batch_id
+    const batchGroups = {};
+    batches.forEach(member => {
+      if (member.batch_id) {
+        if (!batchGroups[member.batch_id]) {
+          batchGroups[member.batch_id] = {
+            batch_id: member.batch_id,
+            created_at: member.created_at,
+            admin_username: member.admin_username,
+            count: 0
+          };
+        }
+        batchGroups[member.batch_id].count++;
+      }
+    });
+
+    const batchList = Object.values(batchGroups);
+    const batchHistoryList = document.getElementById('batchHistoryList');
+    
+    if (batchList.length === 0) {
+      batchHistoryList.innerHTML = '<div style="text-align:center;padding:20px;color:#666">Tidak ada batch pada periode yang dipilih</div>';
+      showImportStatus('Tidak ada batch ditemukan untuk periode tersebut', true);
+      return;
+    }
+
+    // Urutkan berdasarkan tanggal
+    batchList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     batchHistoryList.innerHTML = '';
     
@@ -776,7 +883,7 @@ async function refreshBatchHistory() {
           <div style="font-weight:500">${batch.batch_id}</div>
           <div class="batch-info-small">
             ${new Date(batch.created_at).toLocaleString('id-ID')} | 
-            Admin: ${batch.admin_username}
+            Admin: ${batch.admin_username || 'Unknown'}
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -789,11 +896,12 @@ async function refreshBatchHistory() {
       batchHistoryList.appendChild(batchItem);
     });
 
-    showImportStatus(`Ditemukan ${batchList.length} batch`, true);
+    const dateRangeText = fromDate && toDate ? ` dari ${fromDate} sampai ${toDate}` : '';
+    showImportStatus(`Ditemukan ${batchList.length} batch${dateRangeText}`, true);
     
   } catch (error) {
-    console.error('Error loading batch history:', error);
-    showImportStatus('Error memuat history batch', false);
+    console.error('Error filtering batch history:', error);
+    showImportStatus('Error memfilter batch: ' + error.message, false);
   }
 }
 
@@ -1630,6 +1738,10 @@ document.addEventListener('DOMContentLoaded', function() {
   
   document.getElementById('fromDate').value = firstDay.toISOString().slice(0,10);
   document.getElementById('toDate').value = today.toISOString().slice(0,10);
+  
+  // Set default dates untuk batch filter juga
+  document.getElementById('batchFromDate').value = firstDay.toISOString().slice(0,10);
+  document.getElementById('batchToDate').value = today.toISOString().slice(0,10);
 
   // Check if user was logged in
   const savedUser = localStorage.getItem('currentMasterUser');
