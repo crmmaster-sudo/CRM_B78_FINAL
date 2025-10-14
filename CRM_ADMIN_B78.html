@@ -278,27 +278,51 @@ let chartInstance = null;
 let currentView = 'daily';
 let currentHistoricalDate = null;
 
-// ==================== FIX TIMEZONE ISSUE ====================
+// ==================== FIXED TIMEZONE FUNCTIONS ====================
+function getCurrentLocalDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function formatDateForDisplay(dateString) {
   if (!dateString) return '-';
   
-  // FIX: Gunakan timezone Asia/Jakarta untuk menghindari konversi UTC
-  const date = new Date(dateString + 'T00:00:00+07:00');
+  // Handle both YYYY-MM-DD format and full timestamp
+  let date;
+  if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    // If it's already in YYYY-MM-DD format, parse directly
+    const [year, month, day] = dateString.split('-');
+    date = new Date(year, month - 1, day);
+  } else {
+    // If it's a timestamp, parse normally
+    date = new Date(dateString);
+  }
   
   return date.toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'long', 
-    year: 'numeric',
-    timeZone: 'Asia/Jakarta'
+    year: 'numeric'
   });
 }
 
-function getCurrentLocalDate() {
-  // FIX: Dapatkan tanggal lokal Indonesia yang benar
-  const now = new Date();
-  const offset = now.getTimezoneOffset();
-  const localTime = new Date(now.getTime() - (offset * 60 * 1000));
-  return localTime.toISOString().split('T')[0];
+function ensureDateFormat(dateString) {
+  if (!dateString) return null;
+  
+  // If already in YYYY-MM-DD format, return as is
+  if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateString;
+  }
+  
+  // Convert from timestamp to YYYY-MM-DD
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
 }
 
 // ==================== DOWNLOAD UNTUK GOOGLE DRIVE ====================
@@ -458,7 +482,7 @@ function updateHistoricalDisplay() {
     historicalDateDisplay.textContent = formatDateForDisplay(currentHistoricalDate);
   } else {
     const now = new Date();
-    timeDisplay.textContent = `🔄 ${formatDateForDisplay(now.toISOString().split('T')[0])}`;
+    timeDisplay.textContent = `🔄 ${now.toLocaleDateString('id-ID')}`;
     timeDisplay.style.background = '#dcfce7';
     timeDisplay.style.borderColor = '#bbf7d0';
     timeDisplay.style.color = '#166534';
@@ -614,11 +638,17 @@ function formatDate(dateString) {
 
 function getMemberStatus(lastDeposit) {
   if (!lastDeposit) return 'jarang';
-  const last = new Date(lastDeposit);
+  
+  // Use current historical date if in historical mode, otherwise use today
   const now = currentHistoricalDate ? new Date(currentHistoricalDate) : new Date();
-  const diff = (now - last) / (1000 * 60 * 60 * 24);
-  if (diff <= 7) return 'aktif';
-  if (diff <= 30) return 'normal';
+  const last = new Date(lastDeposit);
+  
+  // Calculate difference in days
+  const diffTime = now - last;
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays <= 7) return 'aktif';
+  if (diffDays <= 30) return 'normal';
   return 'jarang';
 }
 
@@ -697,6 +727,17 @@ async function loadAdminData() {
     state.allMembers = members || [];
     state.allDeposits = deposits || [];
     
+    // Ensure all dates are in YYYY-MM-DD format
+    state.allMembers.forEach(member => {
+      if (member.last_deposit) {
+        member.last_deposit = ensureDateFormat(member.last_deposit);
+      }
+    });
+    
+    state.allDeposits.forEach(deposit => {
+      deposit.date = ensureDateFormat(deposit.date);
+    });
+    
     state.members = [...state.allMembers];
     state.deposits = [...state.allDeposits];
 
@@ -752,7 +793,7 @@ async function refreshMembers() {
     const status = getMemberStatus(m.last_deposit);
     const statusClass = status === 'aktif' ? 'aktif' : status === 'normal' ? 'normal' : 'jarang';
     
-    const displayDate = formatDateForDisplay(m.last_deposit);
+    const displayDate = m.last_deposit ? formatDateForDisplay(m.last_deposit) : '-';
     
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -814,8 +855,15 @@ async function addDeposit() {
     return;
   }
 
+  // FIXED: Gunakan tanggal lokal tanpa konversi timezone
   if (!depositDate) {
     depositDate = getCurrentLocalDate();
+  }
+
+  // Validasi format tanggal
+  if (!depositDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    alert('Format tanggal tidak valid. Gunakan format YYYY-MM-DD');
+    return;
   }
 
   if (currentHistoricalDate && depositDate > currentHistoricalDate) {
@@ -845,7 +893,7 @@ async function addDeposit() {
       member_id: finalMemberId,
       member_name: memberName,
       amount: amount,
-      date: depositDate,
+      date: depositDate, // FIXED: Simpan tanggal sesuai input user
       admin_username: currentAdmin.username,
       created_at: new Date().toISOString()
     };
@@ -859,24 +907,21 @@ async function addDeposit() {
     state.allDeposits.push(depositData);
     state.deposits.push(depositData);
 
+    // FIXED: Update last_deposit dengan tanggal yang sama persis
     if (memberId && !finalMemberId.startsWith('manual_')) {
       const allMember = state.allMembers.find(m => m.id === memberId);
       const currentMember = state.members.find(m => m.id === memberId);
       
       if (allMember) {
-        const currentLastDeposit = allMember.last_deposit ? new Date(allMember.last_deposit) : new Date(0);
-        const newDepositDate = new Date(depositDate);
-        
-        if (newDepositDate > currentLastDeposit) {
-          await supabase
-            .from('members')
-            .update({ last_deposit: depositDate })
-            .eq('id', memberId)
-            .eq('admin_username', currentAdmin.username);
+        // Always update last_deposit with the deposit date (no timezone conversion)
+        await supabase
+          .from('members')
+          .update({ last_deposit: depositDate })
+          .eq('id', memberId)
+          .eq('admin_username', currentAdmin.username);
 
-          allMember.last_deposit = depositDate;
-          if (currentMember) currentMember.last_deposit = depositDate;
-        }
+        allMember.last_deposit = depositDate;
+        if (currentMember) currentMember.last_deposit = depositDate;
       }
     }
 
