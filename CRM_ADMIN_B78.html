@@ -278,6 +278,29 @@ let chartInstance = null;
 let currentView = 'daily';
 let currentHistoricalDate = null;
 
+// ==================== FIX TIMEZONE ISSUE ====================
+function formatDateForDisplay(dateString) {
+  if (!dateString) return '-';
+  
+  // FIX: Gunakan timezone Asia/Jakarta untuk menghindari konversi UTC
+  const date = new Date(dateString + 'T00:00:00+07:00');
+  
+  return date.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long', 
+    year: 'numeric',
+    timeZone: 'Asia/Jakarta'
+  });
+}
+
+function getCurrentLocalDate() {
+  // FIX: Dapatkan tanggal lokal Indonesia yang benar
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const localTime = new Date(now.getTime() - (offset * 60 * 1000));
+  return localTime.toISOString().split('T')[0];
+}
+
 // ==================== DOWNLOAD UNTUK GOOGLE DRIVE ====================
 function downloadForGoogleDrive() {
   if (!currentAdmin) {
@@ -435,7 +458,7 @@ function updateHistoricalDisplay() {
     historicalDateDisplay.textContent = formatDateForDisplay(currentHistoricalDate);
   } else {
     const now = new Date();
-    timeDisplay.textContent = `🔄 ${now.toLocaleDateString('id-ID')}`;
+    timeDisplay.textContent = `🔄 ${formatDateForDisplay(now.toISOString().split('T')[0])}`;
     timeDisplay.style.background = '#dcfce7';
     timeDisplay.style.borderColor = '#bbf7d0';
     timeDisplay.style.color = '#166534';
@@ -554,28 +577,6 @@ async function resetAllAdminData() {
     console.error('Error resetting all data:', error);
     alert('Error reset semua data');
   }
-}
-
-// ==================== FIX TIMEZONE ISSUE ====================
-function formatDateForDisplay(dateString) {
-  if (!dateString) return '-';
-  
-  const date = new Date(dateString);
-  // TANPA koreksi +1 hari, biar tanggal sesuai input user
-  
-  return date.toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'long', 
-    year: 'numeric'
-  });
-}
-
-function getCurrentLocalDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 // ==================== UTILITY FUNCTIONS ====================
