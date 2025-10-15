@@ -293,6 +293,52 @@ let isTimeTravelMode = false;
 let currentTravelDate = null;
 let originalState = { members: [], deposits: [] };
 
+// ==================== FIX TIMEZONE FUNCTIONS ====================
+function formatDateForDisplay(dateString) {
+  if (!dateString) return '-';
+  
+  // FIX: Split manual untuk hindari timezone issue
+  const [year, month, day] = dateString.split('-');
+  const date = new Date(year, month - 1, day); // month - 1 karena JavaScript month 0-based
+  
+  return date.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long', 
+    year: 'numeric'
+  });
+}
+
+function getCurrentLocalDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getMemberStatus(lastDeposit) {
+  if (!lastDeposit) return 'jarang';
+  
+  // FIX: Handle timezone issue
+  const [year, month, day] = lastDeposit.split('-');
+  const last = new Date(year, month - 1, day);
+  const now = new Date();
+  
+  // Reset waktu ke 00:00:00 untuk perbandingan tanggal murni
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  const diff = (today - last) / (1000 * 60 * 60 * 24);
+  if (diff <= 7) return 'aktif';
+  if (diff <= 30) return 'normal';
+  return 'jarang';
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '-';
+  // FIX: Gunakan fungsi yang sama untuk konsistensi
+  return formatDateForDisplay(dateString);
+}
+
 // ==================== FUNGSI RESET DATA BERDASARKAN TANGGAL ====================
 async function resetDataByDate() {
   // Minta tanggal yang ingin direset
@@ -408,7 +454,7 @@ function openTimeTravel() {
   }
 
   // Validasi tanggal tidak di masa depan
-  const today = new Date().toISOString().split('T')[0];
+  const today = getCurrentLocalDate();
   if (travelDate > today) {
     alert('Tidak bisa melakukan time travel ke masa depan!');
     return;
@@ -488,27 +534,6 @@ function filterDataForTimeTravel(travelDate) {
       member.last_deposit = null;
     }
   });
-}
-
-// ==================== FIX TIMEZONE ISSUE ====================
-function formatDateForDisplay(dateString) {
-  if (!dateString) return '-';
-  
-  const date = new Date(dateString);
-  return date.toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'Asia/Jakarta'
-  });
-}
-
-function getCurrentLocalDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 // ==================== MANUAL GOOGLE DRIVE PROCESS ====================
@@ -659,26 +684,6 @@ function formatCurrency(amount) {
     currency: 'IDR',
     minimumFractionDigits: 0
   }).format(amount);
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-}
-
-function getMemberStatus(lastDeposit) {
-  if (!lastDeposit) return 'jarang';
-  const last = new Date(lastDeposit);
-  const now = new Date();
-  const diff = (now - last) / (1000 * 60 * 60 * 24);
-  if (diff <= 7) return 'aktif';
-  if (diff <= 30) return 'normal';
-  return 'jarang';
 }
 
 // ==================== AUTHENTICATION ====================
@@ -1008,7 +1013,7 @@ function refreshDeposits() {
       `${extractOriginalId(d.member_id)} - ${state.members.find(m => m.id === d.member_id)?.name || '-'}`;
     
     tr.innerHTML = `
-      <td>${d.date}</td>
+      <td>${formatDateForDisplay(d.date)}</td>
       <td>${memberDisplay}</td>
       <td>${formatCurrency(d.amount)}</td>
       <td>
@@ -1138,7 +1143,7 @@ function refreshChart() {
     });
     labels = Object.keys(grouped).sort();
     data = labels.map(week => grouped[week]);
-    labels = labels.map(week => `Minggu ${formatDate(week)}`);
+    labels = labels.map(week => `Minggu ${formatDateForDisplay(week)}`);
   } else if (currentView === 'monthly') {
     filteredDeposits.forEach(d => {
       const monthKey = d.date.slice(0, 7);
@@ -1239,19 +1244,19 @@ function updateDateRangeInfo(from, to) {
     infoElement.style.color = '#0369a1';
   } else if (from && to) {
     const filteredCount = state.deposits.filter(d => d.date >= from && d.date <= to).length;
-    infoElement.textContent = `Menampilkan data dari ${formatDate(from)} hingga ${formatDate(to)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
+    infoElement.textContent = `Menampilkan data dari ${formatDateForDisplay(from)} hingga ${formatDateForDisplay(to)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
     infoElement.style.background = '#fef3c7';
     infoElement.style.borderColor = '#fcd34d';
     infoElement.style.color = '#92400e';
   } else if (from) {
     const filteredCount = state.deposits.filter(d => d.date >= from).length;
-    infoElement.textContent = `Menampilkan data sejak ${formatDate(from)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
+    infoElement.textContent = `Menampilkan data sejak ${formatDateForDisplay(from)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
     infoElement.style.background = '#fef3c7';
     infoElement.style.borderColor = '#fcd34d';
     infoElement.style.color = '#92400e';
   } else if (to) {
     const filteredCount = state.deposits.filter(d => d.date <= to).length;
-    infoElement.textContent = `Menampilkan data hingga ${formatDate(to)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
+    infoElement.textContent = `Menampilkan data hingga ${formatDateForDisplay(to)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
     infoElement.style.background = '#fef3c7';
     infoElement.style.borderColor = '#fcd34d';
     infoElement.style.color = '#92400e';
@@ -1281,17 +1286,17 @@ function refreshDailySummary() {
     });
     
     if (from && to) {
-      summaryText = `Periode ${formatDate(from)} - ${formatDate(to)}`;
+      summaryText = `Periode ${formatDateForDisplay(from)} - ${formatDateForDisplay(to)}`;
       depositLabel = 'Total Deposit Periode';
       memberLabel = 'Member Deposit Periode';
       memberDesc = 'Melakukan deposit pada periode ini';
     } else if (from) {
-      summaryText = `Sejak ${formatDate(from)}`;
+      summaryText = `Sejak ${formatDateForDisplay(from)}`;
       depositLabel = 'Total Deposit Sejak';
       memberLabel = 'Member Deposit Sejak';
       memberDesc = 'Melakukan deposit sejak tanggal tersebut';
     } else if (to) {
-      summaryText = `Hingga ${formatDate(to)}`;
+      summaryText = `Hingga ${formatDateForDisplay(to)}`;
       depositLabel = 'Total Deposit Hingga';
       memberLabel = 'Member Deposit Hingga';
       memberDesc = 'Melakukan deposit hingga tanggal tersebut';
