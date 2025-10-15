@@ -454,6 +454,134 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentBatchId = null;
 
+// ==================== FIXED TIMEZONE FUNCTIONS ====================
+// ✅ PERBAIKAN: Fungsi untuk mendapatkan tanggal lokal tanpa timezone issue
+function getCurrentLocalDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// ✅ PERBAIKAN: Fungsi parse Excel date yang FIXED untuk timezone
+function parseExcelDate(excelDate) {
+  try {
+    // Jika null atau undefined
+    if (!excelDate) {
+      return generateRandomDate();
+    }
+
+    // Jika sudah format YYYY-MM-DD, return langsung (TIDAK diubah)
+    if (typeof excelDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
+      return excelDate; // ✅ TIDAK ADA PERUBAHAN - biarkan tetap sama
+    }
+
+    // Jika dari Excel sebagai Date object
+    if (excelDate instanceof Date) {
+      if (!isNaN(excelDate.getTime())) {
+        // ✅ PERBAIKAN: Gunakan local date, bukan UTC
+        const year = excelDate.getFullYear();
+        const month = String(excelDate.getMonth() + 1).padStart(2, '0');
+        const day = String(excelDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    }
+
+    // Jika dari Excel sebagai number (Excel date serial)
+    if (typeof excelDate === 'number') {
+      // Excel date serial to JavaScript Date (Windows epoch)
+      const excelEpoch = new Date(1899, 11, 30);
+      const jsDate = new Date(excelEpoch.getTime() + (excelDate - 1) * 86400000);
+      
+      // Handle Excel bug for 1900 (Excel thinks 1900 was a leap year)
+      if (excelDate > 59) {
+        jsDate.setDate(jsDate.getDate() - 1);
+      }
+      
+      if (!isNaN(jsDate.getTime())) {
+        // ✅ PERBAIKAN: Gunakan local date, bukan UTC
+        const year = jsDate.getFullYear();
+        const month = String(jsDate.getMonth() + 1).padStart(2, '0');
+        const day = String(jsDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+    }
+
+    // Jika format string dengan berbagai separator
+    if (typeof excelDate === 'string') {
+      const cleanDate = excelDate.toString().trim();
+      
+      // Coba parse sebagai local date string
+      const localDate = new Date(cleanDate);
+      if (!isNaN(localDate.getTime())) {
+        // ✅ PERBAIKAN: Gunakan local date components
+        const year = localDate.getFullYear();
+        const month = String(localDate.getMonth() + 1).padStart(2, '0');
+        const day = String(localDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+
+      // Coba format DD/MM/YYYY atau DD-MM-YYYY
+      const parts = cleanDate.split(/[/-]/);
+      if (parts.length === 3) {
+        let day, month, year;
+
+        // Deteksi format berdasarkan panjang bagian pertama
+        if (parts[0].length === 4) {
+          // Format YYYY/MM/DD atau YYYY-MM-DD
+          year = parts[0];
+          month = parts[1];
+          day = parts[2];
+        } else {
+          // Format DD/MM/YYYY atau DD-MM-YYYY
+          day = parts[0];
+          month = parts[1];
+          year = parts[2];
+        }
+
+        // Pastikan format 2 digit untuk bulan dan hari
+        month = month.padStart(2, '0');
+        day = day.padStart(2, '0');
+        
+        // Handle tahun 2 digit
+        if (year.length === 2) {
+          year = '20' + year;
+        }
+
+        // ✅ PERBAIKAN: Buat date dengan komponen lokal
+        const parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        if (!isNaN(parsedDate.getTime())) {
+          const finalYear = parsedDate.getFullYear();
+          const finalMonth = String(parsedDate.getMonth() + 1).padStart(2, '0');
+          const finalDay = String(parsedDate.getDate()).padStart(2, '0');
+          return `${finalYear}-${finalMonth}-${finalDay}`;
+        }
+      }
+    }
+
+    // Fallback: gunakan tanggal acak
+    return generateRandomDate();
+    
+  } catch (error) {
+    console.warn('Date parsing error, using random date:', error, excelDate);
+    return generateRandomDate();
+  }
+}
+
+// ✅ HELPER FUNCTION: Generate random date within 90 days (FIXED)
+function generateRandomDate() {
+  const randomDays = Math.floor(Math.random() * 90);
+  const randomDate = new Date();
+  randomDate.setDate(randomDate.getDate() - randomDays);
+  
+  // ✅ PERBAIKAN: Gunakan local date components
+  const year = randomDate.getFullYear();
+  const month = String(randomDate.getMonth() + 1).padStart(2, '0');
+  const day = String(randomDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // ==================== STORAGE MANAGEMENT FUNCTIONS ====================
 async function checkStorageUsage() {
   try {
@@ -692,122 +820,6 @@ function showImportStatus(message, isSuccess = true) {
   setTimeout(() => {
     statusElement.style.display = 'none';
   }, 5000);
-}
-
-// ✅ HELPER FUNCTION: Generate random date within 90 days
-function generateRandomDate() {
-  const randomDays = Math.floor(Math.random() * 90);
-  const randomDate = new Date();
-  randomDate.setDate(randomDate.getDate() - randomDays);
-  return randomDate.toISOString().slice(0, 10);
-}
-
-// ✅ IMPROVED FUNCTION: Parse Excel dates properly
-function parseExcelDate(excelDate) {
-  try {
-    // Jika null atau undefined
-    if (!excelDate) {
-      return generateRandomDate();
-    }
-
-    // Jika sudah format YYYY-MM-DD
-    if (typeof excelDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
-      return excelDate;
-    }
-
-    // Jika dari Excel sebagai Date object (hasil dari cellDates: true)
-    if (excelDate instanceof Date) {
-      if (!isNaN(excelDate.getTime())) {
-        return excelDate.toISOString().slice(0, 10);
-      }
-    }
-
-    // Jika dari Excel sebagai number (Excel date serial)
-    if (typeof excelDate === 'number') {
-      // Excel date serial to JavaScript Date (Windows epoch)
-      const excelEpoch = new Date(1899, 11, 30);
-      const jsDate = new Date(excelEpoch.getTime() + (excelDate - 1) * 86400000);
-      
-      // Handle Excel bug for 1900 (Excel thinks 1900 was a leap year)
-      if (excelDate > 59) {
-        jsDate.setDate(jsDate.getDate() - 1);
-      }
-      
-      if (!isNaN(jsDate.getTime())) {
-        return jsDate.toISOString().slice(0, 10);
-      }
-    }
-
-    // Jika format string dengan berbagai separator
-    if (typeof excelDate === 'string') {
-      // Bersihkan string dari spasi
-      const cleanDate = excelDate.toString().trim();
-      
-      // Coba parse sebagai ISO string
-      const isoDate = new Date(cleanDate);
-      if (!isNaN(isoDate.getTime())) {
-        return isoDate.toISOString().slice(0, 10);
-      }
-
-      // Coba format DD/MM/YYYY atau DD-MM-YYYY
-      const parts = cleanDate.split(/[/-]/);
-      if (parts.length === 3) {
-        let day, month, year;
-
-        // Deteksi format berdasarkan panjang bagian pertama
-        if (parts[0].length === 4) {
-          // Format YYYY/MM/DD atau YYYY-MM-DD
-          year = parts[0];
-          month = parts[1];
-          day = parts[2];
-        } else {
-          // Format DD/MM/YYYY atau DD-MM-YYYY
-          day = parts[0];
-          month = parts[1];
-          year = parts[2];
-        }
-
-        // Pastikan format 2 digit untuk bulan dan hari
-        month = month.padStart(2, '0');
-        day = day.padStart(2, '0');
-        
-        // Handle tahun 2 digit
-        if (year.length === 2) {
-          year = '20' + year; // Asumsi abad 21
-        }
-
-        const parsedDate = new Date(`${year}-${month}-${day}`);
-        if (!isNaN(parsedDate.getTime())) {
-          return parsedDate.toISOString().slice(0, 10);
-        }
-      }
-
-      // Coba format lain: MMM/DD/YYYY (Oct/08/2024)
-      const monthNames = {
-        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
-        'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
-        'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
-      };
-      
-      const monthMatch = cleanDate.toLowerCase().match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s*[/-]\s*(\d{1,2})\s*[/-]\s*(\d{4})/);
-      if (monthMatch) {
-        const month = monthNames[monthMatch[1].toLowerCase().substring(0, 3)];
-        const day = monthMatch[2].padStart(2, '0');
-        const year = monthMatch[3];
-        const parsedDate = new Date(`${year}-${month}-${day}`);
-        if (!isNaN(parsedDate.getTime())) {
-          return parsedDate.toISOString().slice(0, 10);
-        }
-      }
-    }
-
-    // Fallback: gunakan tanggal acak
-    return generateRandomDate();
-    
-  } catch (error) {
-    console.warn('Date parsing error, using random date:', error, excelDate);
-    return generateRandomDate();
-  }
 }
 
 // ==================== BATCH MANAGEMENT ====================
@@ -1438,7 +1450,7 @@ async function refreshStats() {
   }
 }
 
-// ==================== IMPORT FUNCTION (REVISED - FIXED DUPLICATE ISSUE) ====================
+// ==================== IMPORT FUNCTION (REVISED - FIXED TIMEZONE ISSUE) ====================
 async function importToAdmin() {
   const fileInput = document.getElementById('fileImport');
   const adminUsername = document.getElementById('assignAdmin').value;
@@ -1510,9 +1522,13 @@ async function importToAdmin() {
             const randomDays = Math.floor(Math.random() * 90);
             const randomDate = new Date();
             randomDate.setDate(randomDate.getDate() - randomDays);
-            lastDeposit = randomDate.toISOString().slice(0, 10);
+            // ✅ PERBAIKAN: Gunakan local date components
+            const year = randomDate.getFullYear();
+            const month = String(randomDate.getMonth() + 1).padStart(2, '0');
+            const day = String(randomDate.getDate()).padStart(2, '0');
+            lastDeposit = `${year}-${month}-${day}`;
           } else {
-            lastDeposit = parseExcelDate(lastDeposit);
+            lastDeposit = parseExcelDate(lastDeposit); // ✅ Sudah diperbaiki
           }
 
           const depositDate = new Date(lastDeposit);
@@ -1636,8 +1652,10 @@ async function importToAdmin() {
 // ✅ IMPROVED Template Download function
 function downloadTemplate() {
   const today = new Date();
+  
+  // ✅ PERBAIKAN: Gunakan local date untuk template
   const dates = [
-    today.toISOString().slice(0, 10), // Hari ini
+    getCurrentLocalDate(), // Hari ini (local)
     new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // 7 hari lalu
     new Date(today.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // 15 hari lalu
     new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) // 30 hari lalu
