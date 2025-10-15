@@ -50,6 +50,8 @@
   .time-travel-banner{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 16px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
   .time-travel-banner button{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3)}
   .time-travel-banner button:hover{background:rgba(255,255,255,0.3)}
+  .reset-section{background:#fef2f2;border:1px solid #fecaca;padding:16px;border-radius:8px;margin:16px 0}
+  .reset-buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 </style>
 </head>
 <body>
@@ -80,10 +82,7 @@
         <strong>🕒 MODE TIME TRAVEL</strong>
         <div id="timeTravelDateInfo">Anda sedang melihat data pada tanggal: <strong id="currentTravelDate">-</strong></div>
       </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="resetDataForTravelDate()" class="danger">Reset Data untuk Tanggal Ini</button>
-        <button onclick="exitTimeTravel()" class="warning">Kembali ke Tanggal Sekarang</button>
-      </div>
+      <button onclick="exitTimeTravel()" class="warning">Kembali ke Tanggal Sekarang</button>
     </div>
 
     <!-- Dashboard Pendapatan -->
@@ -98,7 +97,6 @@
         <button onclick="searchDepositByDate()" class="warning">Cari Tanggal</button>
         <button onclick="openTimeTravel()" class="success" style="background:#8b5cf6">🕒 Time Travel</button>
         <button onclick="importFromMaster()">Terima dari Master</button>
-        <button class="danger" onclick="resetAdminData()" id="resetDataBtn">Reset Data</button>
       </div>
 
       <div class="date-info" id="dateRangeInfo">
@@ -126,6 +124,24 @@
           <div id="totalMemberToday" class="summary-value" style="color:#16a34a;">0 Member</div>
           <small style="color:#666;" id="memberDepositDesc">Melakukan deposit</small>
         </div>
+      </div>
+
+      <!-- RESET DATA SECTION -->
+      <div class="reset-section">
+        <h4 style="margin:0 0 12px 0;color:#dc2626">⚠️ Reset Data Admin</h4>
+        <p style="margin:0 0 12px 0;font-size:14px;color:#7f1d1d">
+          Hati-hati! Tindakan reset data tidak dapat dibatalkan. Pilih opsi reset sesuai kebutuhan:
+        </p>
+        <div class="reset-buttons">
+          <button onclick="resetDataByDate()" class="danger" style="background:#dc2626">🗑️ Reset per Tanggal</button>
+          <button onclick="resetDataByDateRange()" class="danger" style="background:#b91c1c">🗑️ Reset per Rentang</button>
+          <button class="danger" onclick="resetAdminData()" style="background:#991b1b">💥 Reset Semua Data</button>
+        </div>
+        <small style="color:#7f1d1d;display:block;margin-top:8px">
+          • Reset per Tanggal: Hapus data di tanggal spesifik<br>
+          • Reset per Rentang: Hapus data dalam rentang tanggal<br>
+          • Reset Semua: Hapus SEMUA data admin
+        </small>
       </div>
     </div>
 
@@ -277,6 +293,154 @@ let isTimeTravelMode = false;
 let currentTravelDate = null;
 let originalState = { members: [], deposits: [] };
 
+// ==================== FIX TIMEZONE FUNCTIONS ====================
+function formatDateForDisplay(dateString) {
+  if (!dateString) return '-';
+  
+  // FIX: Split manual untuk hindari timezone issue
+  const [year, month, day] = dateString.split('-');
+  const date = new Date(year, month - 1, day); // month - 1 karena JavaScript month 0-based
+  
+  return date.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long', 
+    year: 'numeric'
+  });
+}
+
+function getCurrentLocalDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getMemberStatus(lastDeposit) {
+  if (!lastDeposit) return 'jarang';
+  
+  // FIX: Handle timezone issue
+  const [year, month, day] = lastDeposit.split('-');
+  const last = new Date(year, month - 1, day);
+  const now = new Date();
+  
+  // Reset waktu ke 00:00:00 untuk perbandingan tanggal murni
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  const diff = (today - last) / (1000 * 60 * 60 * 24);
+  if (diff <= 7) return 'aktif';
+  if (diff <= 30) return 'normal';
+  return 'jarang';
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '-';
+  // FIX: Gunakan fungsi yang sama untuk konsistensi
+  return formatDateForDisplay(dateString);
+}
+
+// ==================== FUNGSI RESET DATA BERDASARKAN TANGGAL ====================
+async function resetDataByDate() {
+  // Minta tanggal yang ingin direset
+  const resetDate = prompt('Masukkan tanggal yang ingin direset datanya (YYYY-MM-DD):\n\nHanya data pada tanggal ini yang akan dihapus.');
+  
+  if (!resetDate) return;
+
+  // Validasi format tanggal
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(resetDate)) {
+    alert('Format tanggal tidak valid. Gunakan format YYYY-MM-DD');
+    return;
+  }
+
+  // Konfirmasi ulang
+  if (!confirm(`⚠️ HAPUS DATA PADA TANGGAL ${resetDate}?\n\nTindakan ini akan menghapus SEMUA deposit yang terjadi pada tanggal ${resetDate}.\nTindakan ini tidak dapat dibatalkan!`)) {
+    return;
+  }
+
+  try {
+    // Hapus deposit pada tanggal tersebut
+    const { error: depositError } = await supabase
+      .from('deposits')
+      .delete()
+      .eq('admin_username', currentAdmin.username)
+      .eq('date', resetDate);
+
+    if (depositError) throw depositError;
+
+    // Refresh data
+    await loadAdminData();
+    
+    // Jika dalam mode time travel, refresh juga
+    if (isTimeTravelMode) {
+      filterDataForTimeTravel(currentTravelDate);
+    }
+
+    refreshMembers();
+    refreshDeposits();
+    refreshChart();
+    refreshDailySummary();
+
+    alert(`✅ Data pada tanggal ${resetDate} berhasil direset!`);
+
+  } catch (error) {
+    console.error('Error resetting data by date:', error);
+    alert('Error reset data pada tanggal tersebut');
+  }
+}
+
+async function resetDataByDateRange() {
+  const fromDate = prompt('Masukkan tanggal AWAL rentang yang ingin direset (YYYY-MM-DD):');
+  if (!fromDate) return;
+
+  const toDate = prompt('Masukkan tanggal AKHIR rentang yang ingin direset (YYYY-MM-DD):');
+  if (!toDate) return;
+
+  // Validasi format tanggal
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(fromDate) || !dateRegex.test(toDate)) {
+    alert('Format tanggal tidak valid. Gunakan format YYYY-MM-DD');
+    return;
+  }
+
+  if (fromDate > toDate) {
+    alert('Tanggal awal tidak boleh lebih besar dari tanggal akhir');
+    return;
+  }
+
+  if (!confirm(`⚠️ HAPUS DATA DARI ${fromDate} HINGGA ${toDate}?\n\nTindakan ini akan menghapus SEMUA deposit dalam rentang tanggal tersebut.\nTindakan ini tidak dapat dibatalkan!`)) {
+    return;
+  }
+
+  try {
+    const { error: depositError } = await supabase
+      .from('deposits')
+      .delete()
+      .eq('admin_username', currentAdmin.username)
+      .gte('date', fromDate)
+      .lte('date', toDate);
+
+    if (depositError) throw depositError;
+
+    await loadAdminData();
+    
+    if (isTimeTravelMode) {
+      filterDataForTimeTravel(currentTravelDate);
+    }
+
+    refreshMembers();
+    refreshDeposits();
+    refreshChart();
+    refreshDailySummary();
+
+    alert(`✅ Data dari ${fromDate} hingga ${toDate} berhasil direset!`);
+
+  } catch (error) {
+    console.error('Error resetting data by date range:', error);
+    alert('Error reset data pada rentang tanggal tersebut');
+  }
+}
+
 // ==================== TIME TRAVEL FUNCTIONS ====================
 function openTimeTravel() {
   const travelDate = prompt('Masukkan tanggal yang ingin Anda kunjungi (YYYY-MM-DD):');
@@ -290,7 +454,7 @@ function openTimeTravel() {
   }
 
   // Validasi tanggal tidak di masa depan
-  const today = new Date().toISOString().split('T')[0];
+  const today = getCurrentLocalDate();
   if (travelDate > today) {
     alert('Tidak bisa melakukan time travel ke masa depan!');
     return;
@@ -317,9 +481,6 @@ function enterTimeTravelMode(travelDate) {
   document.getElementById('currentTravelDate').textContent = formatDateForDisplay(travelDate);
   document.getElementById('timeTravelWarning').style.display = 'block';
   
-  // Update tombol reset
-  updateResetButton();
-  
   // Update UI
   refreshMembers();
   refreshDeposits();
@@ -338,9 +499,6 @@ function exitTimeTravel() {
   // Sembunyikan banner time travel
   document.getElementById('timeTravelBanner').style.display = 'none';
   document.getElementById('timeTravelWarning').style.display = 'none';
-  
-  // Update tombol reset
-  updateResetButton();
   
   // Update UI
   refreshMembers();
@@ -376,164 +534,6 @@ function filterDataForTimeTravel(travelDate) {
       member.last_deposit = null;
     }
   });
-}
-
-// ==================== RESET DATA FUNCTIONS ====================
-function updateResetButton() {
-  const resetBtn = document.getElementById('resetDataBtn');
-  if (isTimeTravelMode) {
-    resetBtn.textContent = 'Reset Data untuk Tanggal Ini';
-    resetBtn.onclick = function() { resetDataForTravelDate(); };
-  } else {
-    resetBtn.textContent = 'Reset Data';
-    resetBtn.onclick = function() { resetAdminData(); };
-  }
-}
-
-async function resetDataForTravelDate() {
-  if (!isTimeTravelMode || !currentTravelDate) {
-    alert('Anda harus dalam mode Time Travel untuk menggunakan fitur ini');
-    return;
-  }
-
-  const confirmMessage = `HAPUS DATA UNTUK TANGGAL ${formatDateForDisplay(currentTravelDate)}?\\n\\n` +
-                        `Tindakan ini akan menghapus SEMUA data deposit pada tanggal ${currentTravelDate}.\\n` +
-                        `Tindakan ini tidak dapat dibatalkan!`;
-  
-  if (!confirm(confirmMessage)) return;
-
-  try {
-    // Hapus deposits pada tanggal time travel
-    const { error: depositError } = await supabase
-      .from('deposits')
-      .delete()
-      .eq('admin_username', currentAdmin.username)
-      .eq('date', currentTravelDate);
-
-    if (depositError) throw depositError;
-
-    // Update state - hapus deposits pada tanggal time travel dari original state
-    originalState.deposits = originalState.deposits.filter(d => d.date !== currentTravelDate);
-    
-    // Juga hapus dari state time travel
-    state.deposits = state.deposits.filter(d => d.date !== currentTravelDate);
-
-    // Update last_deposit untuk members yang affected
-    for (const member of originalState.members) {
-      if (member.last_deposit === currentTravelDate) {
-        // Cari deposit terbaru untuk member ini (selain yang dihapus)
-        const memberDeposits = originalState.deposits.filter(d => 
-          d.member_id === member.id && !d.member_id.startsWith('manual_')
-        );
-        
-        if (memberDeposits.length > 0) {
-          // Cari tanggal deposit terbaru
-          const latestDeposit = memberDeposits.reduce((latest, deposit) => 
-            deposit.date > latest.date ? deposit : latest
-          );
-          
-          member.last_deposit = latestDeposit.date;
-          
-          // Update di database
-          await supabase
-            .from('members')
-            .update({ last_deposit: latestDeposit.date })
-            .eq('id', member.id)
-            .eq('admin_username', currentAdmin.username);
-        } else {
-          // Tidak ada deposit lain, set ke null
-          member.last_deposit = null;
-          await supabase
-            .from('members')
-            .update({ last_deposit: null })
-            .eq('id', member.id)
-            .eq('admin_username', currentAdmin.username);
-        }
-      }
-    }
-
-    // Refresh data time travel
-    filterDataForTimeTravel(currentTravelDate);
-    
-    // Update UI
-    refreshMembers();
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
-
-    alert(`Data untuk tanggal ${formatDateForDisplay(currentTravelDate)} berhasil direset!`);
-
-  } catch (error) {
-    console.error('Error resetting data for travel date:', error);
-    alert('Error reset data untuk tanggal ini');
-  }
-}
-
-async function resetAdminData() {
-  if (isTimeTravelMode) {
-    // Jika dalam mode time travel, reset untuk tanggal tersebut
-    resetDataForTravelDate();
-    return;
-  }
-
-  if (!confirm('HAPUS SEMUA DATA ADMIN?\\n\\nTindakan ini akan menghapus SEMUA data member dan deposit.\\nTindakan ini tidak dapat dibatalkan!')) return;
-
-  try {
-    const { error: depositError } = await supabase
-      .from('deposits')
-      .delete()
-      .eq('admin_username', currentAdmin.username);
-
-    if (depositError) throw depositError;
-
-    const { error: memberError } = await supabase
-      .from('members')
-      .delete()
-      .eq('admin_username', currentAdmin.username);
-
-    if (memberError) throw memberError;
-
-    state.members = [];
-    state.deposits = [];
-    originalState.members = [];
-    originalState.deposits = [];
-
-    if (isTimeTravelMode) {
-      exitTimeTravel();
-    }
-
-    refreshMembers();
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
-
-    alert('Data admin berhasil direset');
-
-  } catch (error) {
-    console.error('Error resetting data:', error);
-    alert('Error reset data');
-  }
-}
-
-// ==================== FIX TIMEZONE ISSUE ====================
-function formatDateForDisplay(dateString) {
-  if (!dateString) return '-';
-  
-  const date = new Date(dateString);
-  return date.toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'Asia/Jakarta'
-  });
-}
-
-function getCurrentLocalDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 // ==================== MANUAL GOOGLE DRIVE PROCESS ====================
@@ -686,26 +686,6 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
-function formatDate(dateString) {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-}
-
-function getMemberStatus(lastDeposit) {
-  if (!lastDeposit) return 'jarang';
-  const last = new Date(lastDeposit);
-  const now = new Date();
-  const diff = (now - last) / (1000 * 60 * 60 * 24);
-  if (diff <= 7) return 'aktif';
-  if (diff <= 30) return 'normal';
-  return 'jarang';
-}
-
 // ==================== AUTHENTICATION ====================
 async function doLogin() {
   const username = document.getElementById('loginUser').value.trim();
@@ -801,9 +781,81 @@ async function loadAdminData() {
   }
 }
 
-// ... (fungsi-fungsi lainnya tetap sama seperti sebelumnya)
-// refreshMembers, toggleMemberField, addDeposit, refreshDeposits, editDeposit, deleteDeposit
-// refreshChart, updateDateRangeInfo, refreshDailySummary, showAllHistoricalData, dll.
+async function refreshMembers() {
+  const tb = document.getElementById('memberTable');
+  if (!tb) return;
+
+  const keyword = document.getElementById('searchMember')?.value.toLowerCase() || "";
+  const statusFilter = document.getElementById('statusFilter')?.value || "";
+
+  const filtered = state.members.filter(m => {
+    const originalId = extractOriginalId(m.id);
+    const matchKeyword = originalId.toLowerCase().includes(keyword) || 
+                        m.name.toLowerCase().includes(keyword) ||
+                        m.phone.toLowerCase().includes(keyword);
+    const status = getMemberStatus(m.last_deposit);
+    const matchStatus = !statusFilter || status === statusFilter;
+    return matchKeyword && matchStatus;
+  });
+
+  tb.innerHTML = '';
+
+  if (filtered.length === 0) {
+    tb.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:20px;color:#666">Tidak ada data member</td></tr>`;
+    document.getElementById("memberCount").textContent = `Total data: 0 member`;
+    return;
+  }
+
+  filtered.forEach(m => {
+    const status = getMemberStatus(m.last_deposit);
+    const statusClass = status === 'aktif' ? 'aktif' : status === 'normal' ? 'normal' : 'jarang';
+    
+    const displayDate = formatDateForDisplay(m.last_deposit);
+    
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${extractOriginalId(m.id)}</td>
+      <td>${m.name}</td>
+      <td>${m.phone}</td>
+      <td>${displayDate}</td>
+      <td><span class="badge ${statusClass}">${status}</span></td>
+      <td style="text-align:center"><input type="checkbox" ${m.hp_valid ? 'checked' : ''} onchange="toggleMemberField('${m.id}', 'hp_valid', this.checked)"></td>
+      <td style="text-align:center"><input type="checkbox" ${!m.hp_valid ? 'checked' : ''} onchange="toggleMemberField('${m.id}', 'hp_valid', !this.checked)"></td>
+      <td style="text-align:center"><input type="checkbox" ${m.deposit_valid ? 'checked' : ''} onchange="toggleMemberField('${m.id}', 'deposit_valid', this.checked)"></td>
+      <td style="text-align:center"><input type="checkbox" ${!m.deposit_valid ? 'checked' : ''} onchange="toggleMemberField('${m.id}', 'deposit_valid', !this.checked)"></td>
+      <td style="text-align:center"><input type="checkbox" ${m.has_response ? 'checked' : ''} onchange="toggleMemberField('${m.id}', 'has_response', this.checked)"></td>
+      <td style="text-align:center"><input type="checkbox" ${!m.has_response ? 'checked' : ''} onchange="toggleMemberField('${m.id}', 'has_response', !this.checked)"></td>
+    `;
+    tb.appendChild(tr);
+  });
+
+  document.getElementById("memberCount").textContent = `Total data: ${filtered.length} member`;
+
+  const sel = document.getElementById('depositMember');
+  sel.innerHTML = '<option value="">-- pilih --</option>';
+  state.members.forEach(m => {
+    sel.insertAdjacentHTML('beforeend', `<option value="${m.id}">${extractOriginalId(m.id)} - ${m.name}</option>`);
+  });
+}
+
+async function toggleMemberField(memberId, field, value) {
+  try {
+    const { error } = await supabase
+      .from('members')
+      .update({ [field]: value })
+      .eq('id', memberId)
+      .eq('admin_username', currentAdmin.username);
+
+    if (error) throw error;
+
+    const member = state.members.find(m => m.id === memberId);
+    if (member) {
+      member[field] = value;
+    }
+  } catch (error) {
+    console.error('Error updating member:', error);
+  }
+}
 
 // ==================== DEPOSIT MANAGEMENT ====================
 async function addDeposit() {
@@ -961,7 +1013,7 @@ function refreshDeposits() {
       `${extractOriginalId(d.member_id)} - ${state.members.find(m => m.id === d.member_id)?.name || '-'}`;
     
     tr.innerHTML = `
-      <td>${d.date}</td>
+      <td>${formatDateForDisplay(d.date)}</td>
       <td>${memberDisplay}</td>
       <td>${formatCurrency(d.amount)}</td>
       <td>
@@ -1091,7 +1143,7 @@ function refreshChart() {
     });
     labels = Object.keys(grouped).sort();
     data = labels.map(week => grouped[week]);
-    labels = labels.map(week => `Minggu ${formatDate(week)}`);
+    labels = labels.map(week => `Minggu ${formatDateForDisplay(week)}`);
   } else if (currentView === 'monthly') {
     filteredDeposits.forEach(d => {
       const monthKey = d.date.slice(0, 7);
@@ -1192,19 +1244,19 @@ function updateDateRangeInfo(from, to) {
     infoElement.style.color = '#0369a1';
   } else if (from && to) {
     const filteredCount = state.deposits.filter(d => d.date >= from && d.date <= to).length;
-    infoElement.textContent = `Menampilkan data dari ${formatDate(from)} hingga ${formatDate(to)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
+    infoElement.textContent = `Menampilkan data dari ${formatDateForDisplay(from)} hingga ${formatDateForDisplay(to)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
     infoElement.style.background = '#fef3c7';
     infoElement.style.borderColor = '#fcd34d';
     infoElement.style.color = '#92400e';
   } else if (from) {
     const filteredCount = state.deposits.filter(d => d.date >= from).length;
-    infoElement.textContent = `Menampilkan data sejak ${formatDate(from)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
+    infoElement.textContent = `Menampilkan data sejak ${formatDateForDisplay(from)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
     infoElement.style.background = '#fef3c7';
     infoElement.style.borderColor = '#fcd34d';
     infoElement.style.color = '#92400e';
   } else if (to) {
     const filteredCount = state.deposits.filter(d => d.date <= to).length;
-    infoElement.textContent = `Menampilkan data hingga ${formatDate(to)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
+    infoElement.textContent = `Menampilkan data hingga ${formatDateForDisplay(to)} (${filteredCount} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
     infoElement.style.background = '#fef3c7';
     infoElement.style.borderColor = '#fcd34d';
     infoElement.style.color = '#92400e';
@@ -1234,17 +1286,17 @@ function refreshDailySummary() {
     });
     
     if (from && to) {
-      summaryText = `Periode ${formatDate(from)} - ${formatDate(to)}`;
+      summaryText = `Periode ${formatDateForDisplay(from)} - ${formatDateForDisplay(to)}`;
       depositLabel = 'Total Deposit Periode';
       memberLabel = 'Member Deposit Periode';
       memberDesc = 'Melakukan deposit pada periode ini';
     } else if (from) {
-      summaryText = `Sejak ${formatDate(from)}`;
+      summaryText = `Sejak ${formatDateForDisplay(from)}`;
       depositLabel = 'Total Deposit Sejak';
       memberLabel = 'Member Deposit Sejak';
       memberDesc = 'Melakukan deposit sejak tanggal tersebut';
     } else if (to) {
-      summaryText = `Hingga ${formatDate(to)}`;
+      summaryText = `Hingga ${formatDateForDisplay(to)}`;
       depositLabel = 'Total Deposit Hingga';
       memberLabel = 'Member Deposit Hingga';
       memberDesc = 'Melakukan deposit hingga tanggal tersebut';
@@ -1316,6 +1368,46 @@ function resetFilter() {
 // ==================== IMPORT/EXPORT ====================
 async function importFromMaster() {
   alert('Fitur import dari Master akan tersedia setelah setup Master selesai');
+}
+
+async function resetAdminData() {
+  if (!confirm('HAPUS SEMUA DATA ADMIN?\\n\\nTindakan ini akan menghapus SEMUA data member dan deposit.\\nTindakan ini tidak dapat dibatalkan!')) return;
+
+  try {
+    const { error: depositError } = await supabase
+      .from('deposits')
+      .delete()
+      .eq('admin_username', currentAdmin.username);
+
+    if (depositError) throw depositError;
+
+    const { error: memberError } = await supabase
+      .from('members')
+      .delete()
+      .eq('admin_username', currentAdmin.username);
+
+    if (memberError) throw memberError;
+
+    state.members = [];
+    state.deposits = [];
+    originalState.members = [];
+    originalState.deposits = [];
+
+    if (isTimeTravelMode) {
+      exitTimeTravel();
+    }
+
+    refreshMembers();
+    refreshDeposits();
+    refreshChart();
+    refreshDailySummary();
+
+    alert('Data admin berhasil direset');
+
+  } catch (error) {
+    console.error('Error resetting data:', error);
+    alert('Error reset data');
+  }
 }
 
 // ==================== FORMATTING ====================
