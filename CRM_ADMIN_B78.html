@@ -10,7 +10,7 @@
 <style>
   :root{
     --bg:#f3f8ff; --card:#fff; --accent:#3b82f6; --muted:#666;
-    --success:#16a34a; --danger:#ef4444;
+    --success:#16a34a; --danger:#ef4444; --warning:#f59e0b;
   }
   *{box-sizing:border-box;font-family:Inter,system-ui,sans-serif}
   body{margin:0;background:var(--bg);color:#1b1b1b}
@@ -21,7 +21,7 @@
   button{padding:10px 16px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:500}
   button.danger{background:var(--danger)}
   button.success{background:var(--success)}
-  button.warning{background:#f59e0b}
+  button.warning{background:var(--warning)}
   button.info{background:#6b7280}
   .cols{display:grid;grid-template-columns:1fr 380px;gap:20px;margin-top:20px}
   table{width:100%;border-collapse:collapse;font-size:14px}
@@ -47,6 +47,11 @@
   .manual-steps{background:#fffbeb;padding:12px;border-radius:6px;margin:12px 0}
   .date-info{background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;padding:8px 12px;border-radius:6px;font-size:12px;margin:8px 0}
   .chart-actions{display:flex;gap:8px;margin:10px 0;justify-content:center}
+  .time-travel-banner{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:12px 16px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+  .time-travel-banner button{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3)}
+  .time-travel-banner button:hover{background:rgba(255,255,255,0.3)}
+  .reset-section{background:#fef2f2;border:1px solid #fecaca;padding:16px;border-radius:8px;margin:16px 0}
+  .reset-buttons{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 </style>
 </head>
 <body>
@@ -71,6 +76,15 @@
 
   <!-- MAIN -->
   <div id="mainUI" style="display:none">
+    <!-- TIME TRAVEL BANNER -->
+    <div id="timeTravelBanner" class="time-travel-banner" style="display:none">
+      <div>
+        <strong>🕒 MODE TIME TRAVEL</strong>
+        <div id="timeTravelDateInfo">Anda sedang melihat data pada tanggal: <strong id="currentTravelDate">-</strong></div>
+      </div>
+      <button onclick="exitTimeTravel()" class="warning">Kembali ke Tanggal Sekarang</button>
+    </div>
+
     <!-- Dashboard Pendapatan -->
     <div class="card">
       <h3 style="margin-bottom:16px">Dashboard Pendapatan</h3>
@@ -81,8 +95,8 @@
         <button onclick="refreshChart()">Terapkan Filter</button>
         <button onclick="showAllHistoricalData()" class="info">Lihat Semua Data</button>
         <button onclick="searchDepositByDate()" class="warning">Cari Tanggal</button>
+        <button onclick="openTimeTravel()" class="success" style="background:#8b5cf6">🕒 Time Travel</button>
         <button onclick="importFromMaster()">Terima dari Master</button>
-        <button class="danger" onclick="resetAdminData()">Reset Data</button>
       </div>
 
       <div class="date-info" id="dateRangeInfo">
@@ -110,6 +124,24 @@
           <div id="totalMemberToday" class="summary-value" style="color:#16a34a;">0 Member</div>
           <small style="color:#666;" id="memberDepositDesc">Melakukan deposit</small>
         </div>
+      </div>
+
+      <!-- RESET DATA SECTION -->
+      <div class="reset-section">
+        <h4 style="margin:0 0 12px 0;color:#dc2626">⚠️ Reset Data Admin</h4>
+        <p style="margin:0 0 12px 0;font-size:14px;color:#7f1d1d">
+          Hati-hati! Tindakan reset data tidak dapat dibatalkan. Pilih opsi reset sesuai kebutuhan:
+        </p>
+        <div class="reset-buttons">
+          <button onclick="resetDataByDate()" class="danger" style="background:#dc2626">🗑️ Reset per Tanggal</button>
+          <button onclick="resetDataByDateRange()" class="danger" style="background:#b91c1c">🗑️ Reset per Rentang</button>
+          <button class="danger" onclick="resetAdminData()" style="background:#991b1b">💥 Reset Semua Data</button>
+        </div>
+        <small style="color:#7f1d1d;display:block;margin-top:8px">
+          • Reset per Tanggal: Hapus data di tanggal spesifik<br>
+          • Reset per Rentang: Hapus data dalam rentang tanggal<br>
+          • Reset Semua: Hapus SEMUA data admin
+        </small>
       </div>
     </div>
 
@@ -215,6 +247,9 @@
           </div>
           
           <button onclick="addDeposit()" style="width:100%;padding:12px">Tambah Deposit</button>
+          <div id="timeTravelWarning" style="display:none; background:#fef3c7; border:1px solid #fcd34d; color:#92400e; padding:8px; border-radius:6px; margin-top:8px; font-size:12px; text-align:center">
+            ⚠️ Mode Time Travel: Deposit baru akan ditambahkan ke tanggal saat ini
+          </div>
         </div>
 
         <!-- Riwayat Deposit -->
@@ -254,15 +289,212 @@ let currentAdmin = null;
 let state = { members: [], deposits: [] };
 let chartInstance = null;
 let currentView = 'daily'; // 'daily', 'weekly', 'monthly'
+let isTimeTravelMode = false;
+let currentTravelDate = null;
+let originalState = { members: [], deposits: [] };
+
+// ==================== FUNGSI RESET DATA BERDASARKAN TANGGAL ====================
+async function resetDataByDate() {
+  // Minta tanggal yang ingin direset
+  const resetDate = prompt('Masukkan tanggal yang ingin direset datanya (YYYY-MM-DD):\n\nHanya data pada tanggal ini yang akan dihapus.');
+  
+  if (!resetDate) return;
+
+  // Validasi format tanggal
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(resetDate)) {
+    alert('Format tanggal tidak valid. Gunakan format YYYY-MM-DD');
+    return;
+  }
+
+  // Konfirmasi ulang
+  if (!confirm(`⚠️ HAPUS DATA PADA TANGGAL ${resetDate}?\n\nTindakan ini akan menghapus SEMUA deposit yang terjadi pada tanggal ${resetDate}.\nTindakan ini tidak dapat dibatalkan!`)) {
+    return;
+  }
+
+  try {
+    // Hapus deposit pada tanggal tersebut
+    const { error: depositError } = await supabase
+      .from('deposits')
+      .delete()
+      .eq('admin_username', currentAdmin.username)
+      .eq('date', resetDate);
+
+    if (depositError) throw depositError;
+
+    // Refresh data
+    await loadAdminData();
+    
+    // Jika dalam mode time travel, refresh juga
+    if (isTimeTravelMode) {
+      filterDataForTimeTravel(currentTravelDate);
+    }
+
+    refreshMembers();
+    refreshDeposits();
+    refreshChart();
+    refreshDailySummary();
+
+    alert(`✅ Data pada tanggal ${resetDate} berhasil direset!`);
+
+  } catch (error) {
+    console.error('Error resetting data by date:', error);
+    alert('Error reset data pada tanggal tersebut');
+  }
+}
+
+async function resetDataByDateRange() {
+  const fromDate = prompt('Masukkan tanggal AWAL rentang yang ingin direset (YYYY-MM-DD):');
+  if (!fromDate) return;
+
+  const toDate = prompt('Masukkan tanggal AKHIR rentang yang ingin direset (YYYY-MM-DD):');
+  if (!toDate) return;
+
+  // Validasi format tanggal
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(fromDate) || !dateRegex.test(toDate)) {
+    alert('Format tanggal tidak valid. Gunakan format YYYY-MM-DD');
+    return;
+  }
+
+  if (fromDate > toDate) {
+    alert('Tanggal awal tidak boleh lebih besar dari tanggal akhir');
+    return;
+  }
+
+  if (!confirm(`⚠️ HAPUS DATA DARI ${fromDate} HINGGA ${toDate}?\n\nTindakan ini akan menghapus SEMUA deposit dalam rentang tanggal tersebut.\nTindakan ini tidak dapat dibatalkan!`)) {
+    return;
+  }
+
+  try {
+    const { error: depositError } = await supabase
+      .from('deposits')
+      .delete()
+      .eq('admin_username', currentAdmin.username)
+      .gte('date', fromDate)
+      .lte('date', toDate);
+
+    if (depositError) throw depositError;
+
+    await loadAdminData();
+    
+    if (isTimeTravelMode) {
+      filterDataForTimeTravel(currentTravelDate);
+    }
+
+    refreshMembers();
+    refreshDeposits();
+    refreshChart();
+    refreshDailySummary();
+
+    alert(`✅ Data dari ${fromDate} hingga ${toDate} berhasil direset!`);
+
+  } catch (error) {
+    console.error('Error resetting data by date range:', error);
+    alert('Error reset data pada rentang tanggal tersebut');
+  }
+}
+
+// ==================== TIME TRAVEL FUNCTIONS ====================
+function openTimeTravel() {
+  const travelDate = prompt('Masukkan tanggal yang ingin Anda kunjungi (YYYY-MM-DD):');
+  if (!travelDate) return;
+
+  // Validasi format tanggal
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(travelDate)) {
+    alert('Format tanggal tidak valid. Gunakan format YYYY-MM-DD');
+    return;
+  }
+
+  // Validasi tanggal tidak di masa depan
+  const today = new Date().toISOString().split('T')[0];
+  if (travelDate > today) {
+    alert('Tidak bisa melakukan time travel ke masa depan!');
+    return;
+  }
+
+  enterTimeTravelMode(travelDate);
+}
+
+function enterTimeTravelMode(travelDate) {
+  isTimeTravelMode = true;
+  currentTravelDate = travelDate;
+  
+  // Simpan state asli
+  originalState = {
+    members: [...state.members],
+    deposits: [...state.deposits]
+  };
+
+  // Filter data untuk tanggal time travel
+  filterDataForTimeTravel(travelDate);
+  
+  // Tampilkan banner time travel
+  document.getElementById('timeTravelBanner').style.display = 'flex';
+  document.getElementById('currentTravelDate').textContent = formatDateForDisplay(travelDate);
+  document.getElementById('timeTravelWarning').style.display = 'block';
+  
+  // Update UI
+  refreshMembers();
+  refreshDeposits();
+  refreshChart();
+  refreshDailySummary();
+}
+
+function exitTimeTravel() {
+  isTimeTravelMode = false;
+  currentTravelDate = null;
+  
+  // Kembalikan ke state asli
+  state.members = [...originalState.members];
+  state.deposits = [...originalState.deposits];
+  
+  // Sembunyikan banner time travel
+  document.getElementById('timeTravelBanner').style.display = 'none';
+  document.getElementById('timeTravelWarning').style.display = 'none';
+  
+  // Update UI
+  refreshMembers();
+  refreshDeposits();
+  refreshChart();
+  refreshDailySummary();
+}
+
+function filterDataForTimeTravel(travelDate) {
+  // Filter deposits: hanya yang tanggalnya <= travelDate
+  const filteredDeposits = state.deposits.filter(d => d.date <= travelDate);
+  
+  // Untuk members, kita perlu menghitung last_deposit berdasarkan filtered deposits
+  const memberDeposits = {};
+  
+  filteredDeposits.forEach(deposit => {
+    if (!deposit.member_id.startsWith('manual_')) {
+      if (!memberDeposits[deposit.member_id] || deposit.date > memberDeposits[deposit.member_id]) {
+        memberDeposits[deposit.member_id] = deposit.date;
+      }
+    }
+  });
+
+  // Update state untuk time travel
+  state.deposits = filteredDeposits;
+  
+  // Update last_deposit untuk members berdasarkan filtered data
+  state.members.forEach(member => {
+    if (memberDeposits[member.id]) {
+      member.last_deposit = memberDeposits[member.id];
+    } else {
+      // Jika tidak ada deposit pada/before travelDate, set last_deposit ke null
+      member.last_deposit = null;
+    }
+  });
+}
 
 // ==================== FIX TIMEZONE ISSUE ====================
 function formatDateForDisplay(dateString) {
   if (!dateString) return '-';
   
-  // Tangani timezone: tambah 1 hari untuk koreksi timezone
   const date = new Date(dateString);
-  date.setDate(date.getDate() + 1); // Koreksi timezone +1 hari
-  
   return date.toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'long',
@@ -323,12 +555,16 @@ function downloadForGoogleDrive() {
     XLSX.utils.book_append_sheet(wb, wsDeposits, "Riwayat Deposit");
     
     const totalPendapatan = state.deposits.reduce((sum, d) => sum + d.amount, 0);
-    const from = document.getElementById('fromDate').value;
-    const to = document.getElementById('toDate').value;
-    let periodInfo = 'Semua Data Historis';
     
-    if (from || to) {
-      periodInfo = `Periode: ${from || 'Awal'} - ${to || 'Sekarang'}`;
+    let periodInfo = 'Semua Data Historis';
+    if (isTimeTravelMode) {
+      periodInfo = `Mode Time Travel - Data hingga ${formatDateForDisplay(currentTravelDate)}`;
+    } else {
+      const from = document.getElementById('fromDate').value;
+      const to = document.getElementById('toDate').value;
+      if (from || to) {
+        periodInfo = `Periode: ${from || 'Awal'} - ${to || 'Sekarang'}`;
+      }
     }
 
     const summaryData = [
@@ -337,6 +573,7 @@ function downloadForGoogleDrive() {
       ['Admin:', currentAdmin.username],
       ['Nama Admin:', currentAdmin.name || '-'],
       ['Tanggal Export:', new Date().toLocaleString('id-ID')],
+      ['Mode:', isTimeTravelMode ? `Time Travel (hingga ${currentTravelDate})` : 'Normal'],
       ['Rentang Data:', periodInfo],
       [''],
       ['STATISTIK DATA:'],
@@ -519,6 +756,12 @@ async function loadAdminData() {
     state.members = members || [];
     state.deposits = deposits || [];
 
+    // Simpan original state
+    originalState = {
+      members: [...state.members],
+      deposits: [...state.deposits]
+    };
+
     document.getElementById('fromDate').value = '';
     document.getElementById('toDate').value = '';
     document.getElementById('depositDate').value = '';
@@ -562,7 +805,6 @@ async function refreshMembers() {
     const status = getMemberStatus(m.last_deposit);
     const statusClass = status === 'aktif' ? 'aktif' : status === 'normal' ? 'normal' : 'jarang';
     
-    // PERBAIKAN: Gunakan formatDateForDisplay untuk koreksi timezone
     const displayDate = formatDateForDisplay(m.last_deposit);
     
     const tr = document.createElement('tr');
@@ -612,6 +854,12 @@ async function toggleMemberField(memberId, field, value) {
 
 // ==================== DEPOSIT MANAGEMENT ====================
 async function addDeposit() {
+  if (isTimeTravelMode) {
+    if (!confirm('Anda sedang dalam mode Time Travel.\n\nDeposit baru akan ditambahkan ke tanggal hari ini, bukan tanggal time travel.\n\nLanjutkan?')) {
+      return;
+    }
+  }
+
   const memberId = document.getElementById('depositMember').value;
   const manualName = document.getElementById('depositManual').value.trim();
   const amount = getCleanAmount();
@@ -622,7 +870,6 @@ async function addDeposit() {
     return;
   }
 
-  // PERBAIKAN: Gunakan tanggal lokal untuk menghindari timezone issue
   if (!depositDate) {
     depositDate = getCurrentLocalDate();
   }
@@ -649,7 +896,7 @@ async function addDeposit() {
       member_id: finalMemberId,
       member_name: memberName,
       amount: amount,
-      date: depositDate, // Simpan tanggal sesuai input user
+      date: depositDate,
       admin_username: currentAdmin.username,
       created_at: new Date().toISOString()
     };
@@ -660,23 +907,47 @@ async function addDeposit() {
 
     if (error) throw error;
 
-    state.deposits.push(depositData);
+    // Tambahkan ke state asli (bukan state time travel)
+    if (isTimeTravelMode) {
+      originalState.deposits.push(depositData);
+      
+      // Update last_deposit member di state asli jika perlu
+      if (memberId && !finalMemberId.startsWith('manual_')) {
+        const member = originalState.members.find(m => m.id === memberId);
+        if (member) {
+          const currentLastDeposit = member.last_deposit ? new Date(member.last_deposit) : new Date(0);
+          const newDepositDate = new Date(depositDate);
+          
+          if (newDepositDate > currentLastDeposit) {
+            await supabase
+              .from('members')
+              .update({ last_deposit: depositDate })
+              .eq('id', memberId)
+              .eq('admin_username', currentAdmin.username);
 
-    // Update member's last deposit
-    if (memberId && !finalMemberId.startsWith('manual_')) {
-      const member = state.members.find(m => m.id === memberId);
-      if (member) {
-        const currentLastDeposit = member.last_deposit ? new Date(member.last_deposit) : new Date(0);
-        const newDepositDate = new Date(depositDate);
-        
-        if (newDepositDate > currentLastDeposit) {
-          await supabase
-            .from('members')
-            .update({ last_deposit: depositDate })
-            .eq('id', memberId)
-            .eq('admin_username', currentAdmin.username);
+            member.last_deposit = depositDate;
+          }
+        }
+      }
+    } else {
+      state.deposits.push(depositData);
 
-          member.last_deposit = depositDate;
+      // Update member's last deposit
+      if (memberId && !finalMemberId.startsWith('manual_')) {
+        const member = state.members.find(m => m.id === memberId);
+        if (member) {
+          const currentLastDeposit = member.last_deposit ? new Date(member.last_deposit) : new Date(0);
+          const newDepositDate = new Date(depositDate);
+          
+          if (newDepositDate > currentLastDeposit) {
+            await supabase
+              .from('members')
+              .update({ last_deposit: depositDate })
+              .eq('id', memberId)
+              .eq('admin_username', currentAdmin.username);
+
+            member.last_deposit = depositDate;
+          }
         }
       }
     }
@@ -685,6 +956,12 @@ async function addDeposit() {
     document.getElementById('depositManual').value = '';
     document.getElementById('depositMember').value = '';
     document.getElementById('depositDate').value = '';
+
+    // Refresh data
+    if (isTimeTravelMode) {
+      // Tetap di mode time travel, refresh dengan filter yang sama
+      filterDataForTimeTravel(currentTravelDate);
+    }
 
     refreshDeposits();
     refreshChart();
@@ -774,6 +1051,17 @@ async function editDeposit(depositId) {
       deposit.date = newDate;
     }
 
+    // Jika dalam mode time travel, update juga original state
+    if (isTimeTravelMode) {
+      const originalDeposit = originalState.deposits.find(d => d.id === depositId);
+      if (originalDeposit) {
+        originalDeposit.amount = cleanAmount;
+        if (newDate) {
+          originalDeposit.date = newDate;
+        }
+      }
+    }
+
     refreshDeposits();
     refreshChart();
     refreshDailySummary();
@@ -797,6 +1085,11 @@ async function deleteDeposit(depositId) {
     if (error) throw error;
 
     state.deposits = state.deposits.filter(d => d.id !== depositId);
+
+    // Jika dalam mode time travel, hapus juga dari original state
+    if (isTimeTravelMode) {
+      originalState.deposits = originalState.deposits.filter(d => d.id !== depositId);
+    }
 
     refreshDeposits();
     refreshChart();
@@ -934,7 +1227,12 @@ function refreshChart() {
 function updateDateRangeInfo(from, to) {
   const infoElement = document.getElementById('dateRangeInfo');
   
-  if (!from && !to) {
+  if (isTimeTravelMode) {
+    infoElement.textContent = `🕒 Mode Time Travel: Menampilkan data hingga ${formatDateForDisplay(currentTravelDate)} (${state.deposits.length} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
+    infoElement.style.background = '#fef3c7';
+    infoElement.style.borderColor = '#fcd34d';
+    infoElement.style.color = '#92400e';
+  } else if (!from && !to) {
     infoElement.textContent = `Menampilkan semua data historis (${state.deposits.length} transaksi) - Tampilan ${currentView === 'daily' ? 'Harian' : currentView === 'weekly' ? 'Mingguan' : 'Bulanan'}`;
     infoElement.style.background = '#f0f9ff';
     infoElement.style.borderColor = '#bae6fd';
@@ -970,7 +1268,12 @@ function refreshDailySummary() {
   let memberLabel = 'Total Member Deposit';
   let memberDesc = 'Melakukan deposit';
 
-  if (from || to) {
+  if (isTimeTravelMode) {
+    summaryText = `Time Travel: Hingga ${formatDateForDisplay(currentTravelDate)}`;
+    depositLabel = 'Total Deposit hingga Tanggal';
+    memberLabel = 'Member Deposit hingga Tanggal';
+    memberDesc = 'Melakukan deposit hingga tanggal tersebut';
+  } else if (from || to) {
     filteredDeposits = state.deposits.filter(d => {
       if (from && d.date < from) return false;
       if (to && d.date > to) return false;
@@ -1010,9 +1313,14 @@ function refreshDailySummary() {
 function showAllHistoricalData() {
   document.getElementById('fromDate').value = '';
   document.getElementById('toDate').value = '';
-  refreshChart();
-  refreshMembers();
-  refreshDeposits();
+  
+  if (isTimeTravelMode) {
+    exitTimeTravel();
+  } else {
+    refreshChart();
+    refreshMembers();
+    refreshDeposits();
+  }
 }
 
 function searchDepositByDate() {
@@ -1077,6 +1385,12 @@ async function resetAdminData() {
 
     state.members = [];
     state.deposits = [];
+    originalState.members = [];
+    originalState.deposits = [];
+
+    if (isTimeTravelMode) {
+      exitTimeTravel();
+    }
 
     refreshMembers();
     refreshDeposits();
