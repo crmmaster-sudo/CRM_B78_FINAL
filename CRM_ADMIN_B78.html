@@ -132,23 +132,21 @@
         </div>
       </div>
 
-      <!-- RESET DATA SECTION -->
+      <!-- RESET DATA SECTION - DIREVISI -->
       <div class="reset-section">
         <h4 style="margin:0 0 12px 0;color:#dc2626">⚠️ Reset Data Admin</h4>
         <p style="margin:0 0 12px 0;font-size:14px;color:#7f1d1d">
           Hati-hati! Tindakan reset data tidak dapat dibatalkan. Pilih opsi reset sesuai kebutuhan:
         </p>
         <div class="reset-buttons">
-          <button onclick="resetDataByDate()" class="danger" style="background:#dc2626">🗑️ Reset Deposit per Tanggal</button>
-          <button onclick="resetDataByDateRange()" class="danger" style="background:#b91c1c">🗑️ Reset Deposit per Rentang</button>
-          <button class="danger" onclick="resetMemberData()" style="background:#991b1b">👥 Reset Data Member</button>
+          <!-- TOMBOL RESET DATA MEMBER PER TANGGAL BARU -->
+          <button class="danger" onclick="resetMemberDataByDate()" style="background:#dc2626">👥 Reset Member per Tanggal</button>
           <button class="danger" onclick="resetAdminData()" style="background:#7f1d1d">💥 Reset Semua Data</button>
         </div>
         <small style="color:#7f1d1d;display:block;margin-top:8px">
-          • Reset Deposit per Tanggal: Hapus deposit di tanggal spesifik<br>
-          • Reset Deposit per Rentang: Hapus deposit dalam rentang tanggal<br>
-          • Reset Data Member: Hanya hapus data member (deposit tetap)<br>
-          • Reset Semua: Hapus SEMUA data admin (member + deposit)
+          <!-- DESKRIPSI DIREVISI -->
+          • Reset Member per Tanggal: Hanya hapus data MEMBER pada tanggal tertentu (deposit tetap)<br>
+          • Reset Semua: Hapus SEMUA data admin (semua member + semua deposit)
         </small>
       </div>
     </div>
@@ -443,9 +441,9 @@ function showNotification(message) {
   }, 3000);
 }
 
-// ==================== FUNGSI RESET DATA ====================
-async function resetDataByDate() {
-  const resetDate = prompt('Masukkan tanggal yang ingin direset datanya (YYYY-MM-DD):\n\nHanya DEPOSIT pada tanggal ini yang akan dihapus.');
+// ==================== FUNGSI RESET DATA - DIREVISI ====================
+async function resetMemberDataByDate() {
+  const resetDate = prompt('Masukkan tanggal yang ingin direset data membernya (YYYY-MM-DD):\n\nHanya DATA MEMBER pada tanggal ini yang akan dihapus. Data deposit TETAP AMAN.');
   
   if (!resetDate) return;
 
@@ -455,107 +453,37 @@ async function resetDataByDate() {
     return;
   }
 
-  if (!confirm(`⚠️ HAPUS DEPOSIT PADA TANGGAL ${resetDate}?\n\nTindakan ini akan menghapus SEMUA DEPOSIT yang terjadi pada tanggal ${resetDate}.\nData member TIDAK akan dihapus.\nTindakan ini tidak dapat dibatalkan!`)) {
+  if (!confirm(`⚠️ HAPUS DATA MEMBER PADA TANGGAL ${resetDate}?\n\nTindakan ini akan menghapus:\n• SEMUA MEMBER yang dibuat/diimport pada tanggal ${resetDate}\n\nData deposit TIDAK AKAN DIHAPUS dan tetap aman!\nTindakan ini tidak dapat dibatalkan!`)) {
     return;
   }
 
   try {
-    const { error: depositError } = await supabase
-      .from('deposits')
-      .delete()
-      .eq('admin_username', currentAdmin.username)
-      .eq('date', resetDate);
-
-    if (depositError) throw depositError;
-
-    await loadAdminData();
-    refreshMembers();
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
-
-    alert(`✅ Deposit pada tanggal ${resetDate} berhasil direset!`);
-
-  } catch (error) {
-    console.error('Error resetting data by date:', error);
-    alert('Error reset deposit pada tanggal tersebut');
-  }
-}
-
-async function resetDataByDateRange() {
-  const fromDate = prompt('Masukkan tanggal AWAL rentang yang ingin direset (YYYY-MM-DD):');
-  if (!fromDate) return;
-
-  const toDate = prompt('Masukkan tanggal AKHIR rentang yang ingin direset (YYYY-MM-DD):');
-  if (!toDate) return;
-
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(fromDate) || !dateRegex.test(toDate)) {
-    alert('Format tanggal tidak valid. Gunakan format YYYY-MM-DD');
-    return;
-  }
-
-  if (fromDate > toDate) {
-    alert('Tanggal awal tidak boleh lebih besar dari tanggal akhir');
-    return;
-  }
-
-  if (!confirm(`⚠️ HAPUS DEPOSIT DARI ${fromDate} HINGGA ${toDate}?\n\nTindakan ini akan menghapus SEMUA DEPOSIT dalam rentang tanggal tersebut.\nData member TIDAK akan dihapus.\nTindakan ini tidak dapat dibatalkan!`)) {
-    return;
-  }
-
-  try {
-    const { error: depositError } = await supabase
-      .from('deposits')
-      .delete()
-      .eq('admin_username', currentAdmin.username)
-      .gte('date', fromDate)
-      .lte('date', toDate);
-
-    if (depositError) throw depositError;
-
-    await loadAdminData();
-    refreshMembers();
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
-
-    alert(`✅ Deposit dari ${fromDate} hingga ${toDate} berhasil direset!`);
-
-  } catch (error) {
-    console.error('Error resetting data by date range:', error);
-    alert('Error reset deposit pada rentang tanggal tersebut');
-  }
-}
-
-async function resetMemberData() {
-  if (!confirm(`⚠️ HAPUS SEMUA DATA MEMBER?\n\nTindakan ini akan menghapus SEMUA DATA MEMBER admin ${currentAdmin.username}.\nData deposit AKAN TETAP ADA dan TIDAK dihapus.\nTindakan ini tidak dapat dibatalkan!`)) return;
-
-  try {
+    // Hanya hapus member yang dibuat pada tanggal tersebut
     const { error: memberError } = await supabase
       .from('members')
       .delete()
-      .eq('admin_username', currentAdmin.username);
+      .eq('admin_username', currentAdmin.username)
+      .eq('created_at', resetDate + 'T00:00:00.000Z');
 
     if (memberError) throw memberError;
 
-    state.members = [];
-    dateWiseData = {};
+    // Reload data
+    await loadAdminData();
     refreshMembers();
     refreshDeposits();
     refreshChart();
     refreshDailySummary();
 
-    alert('✅ Data member berhasil direset! Data deposit tetap tersimpan.');
+    alert(`✅ Data member pada tanggal ${resetDate} berhasil direset!\n\nData deposit tetap aman dan tidak terhapus.`);
 
   } catch (error) {
-    console.error('Error resetting member data:', error);
-    alert('Error reset data member');
+    console.error('Error resetting member data by date:', error);
+    alert('Error reset data member pada tanggal tersebut');
   }
 }
 
 async function resetAdminData() {
-  if (!confirm(`💥 HAPUS SEMUA DATA ADMIN?\n\nTindakan ini akan menghapus SEMUA DATA (member dan deposit) admin ${currentAdmin.username}.\nTindakan ini tidak dapat dibatalkan!`)) return;
+  if (!confirm(`💥 HAPUS SEMUA DATA ADMIN?\n\nTindakan ini akan menghapus SEMUA DATA (semua member + semua deposit) admin ${currentAdmin.username}.\nTindakan ini tidak dapat dibatalkan!`)) return;
 
   try {
     const { error: depositError } = await supabase
@@ -901,43 +829,13 @@ async function importFromMaster() {
   if (!confirmImport) return;
 
   try {
+    // Kosongkan data mock - akan diganti dengan API call sebenarnya
     const mockMasterData = {
-      members: [
-        {
-          id: 'member_' + uid(),
-          name: 'Budi Santoso',
-          phone: '081234567890',
-          last_deposit: '2024-10-15',
-          hp_valid: true,
-          deposit_valid: false,
-          has_response: true,
-          admin_username: currentAdmin.username,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 'member_' + uid(),
-          name: 'Siti Rahayu',
-          phone: '087654321098',
-          last_deposit: '2024-10-10',
-          hp_valid: true,
-          deposit_valid: false,
-          has_response: false,
-          admin_username: currentAdmin.username,
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 'member_' + uid(),
-          name: 'Ahmad Wijaya',
-          phone: '085123456789',
-          last_deposit: '2024-09-20',
-          hp_valid: false,
-          deposit_valid: false,
-          has_response: true,
-          admin_username: currentAdmin.username,
-          created_at: new Date().toISOString()
-        }
-      ]
+      members: []
     };
+
+    // Di sini nanti akan diganti dengan API call ke master system
+    alert('Fitur import dari Master akan tersedia setelah setup Master selesai\n\nSementara ini, data akan dikosongkan untuk testing.');
 
     const { error: memberError } = await supabase
       .from('members')
