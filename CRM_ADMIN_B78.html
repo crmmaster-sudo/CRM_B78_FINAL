@@ -84,8 +84,8 @@
   <!-- LOGIN -->
   <div id="loginBox" class="card" style="max-width:400px;margin:80px auto">
     <h2 style="text-align:center;margin-bottom:20px">Login Admin</h2>
-    <input id="loginUser" placeholder="Username" value="admin1" style="margin-bottom:12px"/>
-    <input id="loginPass" type="password" placeholder="Password" value="admin123" style="margin-bottom:16px"/>
+    <input id="loginUser" placeholder="Username" style="margin-bottom:12px"/>
+    <input id="loginPass" type="password" placeholder="Password" style="margin-bottom:16px"/>
     <button onclick="doLogin()" style="width:100%;padding:12px">Masuk</button>
     <div id="loginMsg" style="color:red;margin-top:12px;text-align:center"></div>
   </div>
@@ -132,19 +132,17 @@
         </div>
       </div>
 
-      <!-- RESET DATA SECTION - DIREVISI -->
+      <!-- RESET DATA SECTION -->
       <div class="reset-section">
         <h4 style="margin:0 0 12px 0;color:#dc2626">⚠️ Reset Data Admin</h4>
         <p style="margin:0 0 12px 0;font-size:14px;color:#7f1d1d">
           Hati-hati! Tindakan reset data tidak dapat dibatalkan. Pilih opsi reset sesuai kebutuhan:
         </p>
         <div class="reset-buttons">
-          <!-- TOMBOL RESET DATA MEMBER PER TANGGAL BARU -->
           <button class="danger" onclick="resetMemberDataByDate()" style="background:#dc2626">👥 Reset Member per Tanggal</button>
           <button class="danger" onclick="resetAdminData()" style="background:#7f1d1d">💥 Reset Semua Data</button>
         </div>
         <small style="color:#7f1d1d;display:block;margin-top:8px">
-          <!-- DESKRIPSI DIREVISI -->
           • Reset Member per Tanggal: Hanya hapus data MEMBER pada tanggal tertentu (deposit tetap)<br>
           • Reset Semua: Hapus SEMUA data admin (semua member + semua deposit)
         </small>
@@ -441,7 +439,7 @@ function showNotification(message) {
   }, 3000);
 }
 
-// ==================== FUNGSI RESET DATA - DIREVISI ====================
+// ==================== FUNGSI RESET DATA ====================
 async function resetMemberDataByDate() {
   const resetDate = prompt('Masukkan tanggal yang ingin direset data membernya (YYYY-MM-DD):\n\nHanya DATA MEMBER pada tanggal ini yang akan dihapus. Data deposit TETAP AMAN.');
   
@@ -829,24 +827,24 @@ async function importFromMaster() {
   if (!confirmImport) return;
 
   try {
-    // Kosongkan data mock - akan diganti dengan API call sebenarnya
-    const mockMasterData = {
+    // Data kosong - tidak ada data testing
+    const masterData = {
       members: []
     };
 
     // Di sini nanti akan diganti dengan API call ke master system
-    alert('Fitur import dari Master akan tersedia setelah setup Master selesai\n\nSementara ini, data akan dikosongkan untuk testing.');
+    alert('Fitur import dari Master akan tersedia setelah setup Master selesai');
 
     const { error: memberError } = await supabase
       .from('members')
-      .insert(mockMasterData.members);
+      .insert(masterData.members);
 
     if (memberError) throw memberError;
 
-    state.members.push(...mockMasterData.members);
+    state.members.push(...masterData.members);
     
     const currentDataSet = getCurrentDataSet();
-    currentDataSet.members.push(...mockMasterData.members);
+    currentDataSet.members.push(...masterData.members);
 
     refreshMembers();
     showNotification('✅ Data master berhasil diimport untuk tanggal ' + formatDateForDisplay(currentDate));
