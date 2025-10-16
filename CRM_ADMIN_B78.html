@@ -295,18 +295,42 @@ let state = { members: [], deposits: [] };
 let chartInstance = null;
 let currentView = 'daily'; // 'daily', 'weekly', 'monthly'
 
+// ==================== SISTEM DATA PER TANGGAL ====================
+let dateWiseData = {}; // Format: { "2024-10-16": { members: [], deposits: [] } }
+
+function getCurrentDataSet() {
+  const currentDate = getCurrentViewDate();
+  
+  if (!dateWiseData[currentDate]) {
+    dateWiseData[currentDate] = {
+      members: [],
+      deposits: []
+    };
+  }
+  
+  return dateWiseData[currentDate];
+}
+
+function getFilteredMembers() {
+  const currentDataSet = getCurrentDataSet();
+  return currentDataSet.members || [];
+}
+
+function getFilteredDeposits() {
+  const currentDataSet = getCurrentDataSet();
+  return currentDataSet.deposits || [];
+}
+
 // ==================== AUTO-RESET SYSTEM ====================
 function initializeDailySystem() {
   const today = getCurrentLocalDate();
   const lastViewDate = localStorage.getItem('lastViewDate');
   
-  // Jika beda hari, reset tampilan ke hari ini
   if (lastViewDate !== today) {
     localStorage.setItem('lastViewDate', today);
     localStorage.setItem('currentViewDate', today);
     showNotification('🔄 Sistem direset untuk tanggal ' + formatDateForDisplay(today));
   } else {
-    // Jika masih hari yang sama, gunakan tanggal yang disimpan
     const savedDate = localStorage.getItem('currentViewDate') || today;
     setCurrentViewDate(savedDate);
   }
@@ -316,12 +340,10 @@ function resetToToday() {
   const today = getCurrentLocalDate();
   setCurrentViewDate(today);
   
-  // Reset filter tanggal
   document.getElementById('fromDate').value = '';
   document.getElementById('toDate').value = '';
   document.getElementById('depositDate').value = '';
   
-  // Refresh semua tampilan
   refreshMembers();
   refreshDeposits();
   refreshChart();
@@ -339,12 +361,10 @@ function updateDateDisplay(date) {
   const today = getCurrentLocalDate();
   const isToday = date === today;
   
-  // Update date display di header
   const dateDisplayElement = document.getElementById('currentDateDisplay');
   const displayText = formatDateForDisplay(date) + (isToday ? ' (HARI INI)' : '');
   dateDisplayElement.textContent = displayText;
   
-  // Update banner info
   const infoElement = document.getElementById('dateRangeInfo');
   if (isToday) {
     infoElement.innerHTML = `📅 <strong>HARI INI</strong> - ${formatDateForDisplay(date)} - Mulai data fresh`;
@@ -363,26 +383,6 @@ function getCurrentViewDate() {
   return localStorage.getItem('currentViewDate') || getCurrentLocalDate();
 }
 
-function getFilteredDeposits() {
-  const currentDate = getCurrentViewDate();
-  return state.deposits.filter(deposit => deposit.date === currentDate);
-}
-
-function getFilteredMembers() {
-  const currentDate = getCurrentViewDate();
-  const todayDeposits = getFilteredDeposits();
-  
-  // Dapatkan member yang melakukan deposit hari ini
-  const todayMemberIds = new Set();
-  todayDeposits.forEach(deposit => {
-    if (!deposit.member_id.startsWith('manual_')) {
-      todayMemberIds.add(deposit.member_id);
-    }
-  });
-  
-  return state.members.filter(member => todayMemberIds.has(member.id));
-}
-
 // ==================== DATE NAVIGATION ====================
 function goToPreviousDay() {
   const currentDate = new Date(getCurrentViewDate());
@@ -396,7 +396,6 @@ function goToNextDay() {
   currentDate.setDate(currentDate.getDate() + 1);
   const nextDate = currentDate.toISOString().split('T')[0];
   
-  // Jangan allow future dates
   const today = getCurrentLocalDate();
   if (nextDate > today) {
     showNotification('Tidak bisa navigasi ke tanggal masa depan');
@@ -420,7 +419,6 @@ function navigateToDate(targetDate) {
 }
 
 function showNotification(message) {
-  // Create temporary notification
   const notification = document.createElement('div');
   notification.style.cssText = `
     position: fixed;
@@ -542,6 +540,7 @@ async function resetMemberData() {
     if (memberError) throw memberError;
 
     state.members = [];
+    dateWiseData = {};
     refreshMembers();
     refreshDeposits();
     refreshChart();
@@ -575,6 +574,7 @@ async function resetAdminData() {
 
     state.members = [];
     state.deposits = [];
+    dateWiseData = {};
     refreshMembers();
     refreshDeposits();
     refreshChart();
@@ -823,7 +823,6 @@ function openMain(user) {
 
   localStorage.setItem('currentAdminUser', JSON.stringify(user));
   
-  // Initialize daily system setelah login
   initializeDailySystem();
   loadAdminData();
 }
@@ -833,7 +832,7 @@ async function loadAdminData() {
   if (!currentAdmin) return;
 
   try {
-    const { data: members, error: membersError } = await supabase
+    const { data: allMembers, error: membersError } = await supabase
       .from('members')
       .select('*')
       .eq('admin_username', currentAdmin.username)
@@ -841,7 +840,7 @@ async function loadAdminData() {
 
     if (membersError) throw membersError;
 
-    const { data: deposits, error: depositsError } = await supabase
+    const { data: allDeposits, error: depositsError } = await supabase
       .from('deposits')
       .select('*')
       .eq('admin_username', currentAdmin.username)
@@ -849,8 +848,10 @@ async function loadAdminData() {
 
     if (depositsError) throw depositsError;
 
-    state.members = members || [];
-    state.deposits = deposits || [];
+    state.members = allMembers || [];
+    state.deposits = allDeposits || [];
+
+    organizeDataByDate();
 
     document.getElementById('fromDate').value = '';
     document.getElementById('toDate').value = '';
@@ -866,6 +867,99 @@ async function loadAdminData() {
   }
 }
 
+function organizeDataByDate() {
+  dateWiseData = {};
+  
+  state.deposits.forEach(deposit => {
+    if (!dateWiseData[deposit.date]) {
+      dateWiseData[deposit.date] = {
+        members: [],
+        deposits: []
+      };
+    }
+    dateWiseData[deposit.date].deposits.push(deposit);
+  });
+  
+  state.members.forEach(member => {
+    const memberDate = member.created_at ? member.created_at.split('T')[0] : getCurrentLocalDate();
+    
+    if (!dateWiseData[memberDate]) {
+      dateWiseData[memberDate] = {
+        members: [],
+        deposits: []
+      };
+    }
+    dateWiseData[memberDate].members.push(member);
+  });
+}
+
+// ==================== IMPORT FROM MASTER ====================
+async function importFromMaster() {
+  const currentDate = getCurrentViewDate();
+  const confirmImport = confirm(`Import data master untuk tanggal ${formatDateForDisplay(currentDate)}?\n\nData member dari master akan ditambahkan ke database tanggal ini.`);
+  
+  if (!confirmImport) return;
+
+  try {
+    const mockMasterData = {
+      members: [
+        {
+          id: 'member_' + uid(),
+          name: 'Budi Santoso',
+          phone: '081234567890',
+          last_deposit: '2024-10-15',
+          hp_valid: true,
+          deposit_valid: false,
+          has_response: true,
+          admin_username: currentAdmin.username,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'member_' + uid(),
+          name: 'Siti Rahayu',
+          phone: '087654321098',
+          last_deposit: '2024-10-10',
+          hp_valid: true,
+          deposit_valid: false,
+          has_response: false,
+          admin_username: currentAdmin.username,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'member_' + uid(),
+          name: 'Ahmad Wijaya',
+          phone: '085123456789',
+          last_deposit: '2024-09-20',
+          hp_valid: false,
+          deposit_valid: false,
+          has_response: true,
+          admin_username: currentAdmin.username,
+          created_at: new Date().toISOString()
+        }
+      ]
+    };
+
+    const { error: memberError } = await supabase
+      .from('members')
+      .insert(mockMasterData.members);
+
+    if (memberError) throw memberError;
+
+    state.members.push(...mockMasterData.members);
+    
+    const currentDataSet = getCurrentDataSet();
+    currentDataSet.members.push(...mockMasterData.members);
+
+    refreshMembers();
+    showNotification('✅ Data master berhasil diimport untuk tanggal ' + formatDateForDisplay(currentDate));
+
+  } catch (error) {
+    console.error('Error importing from master:', error);
+    alert('Error import data master');
+  }
+}
+
+// ==================== MEMBER MANAGEMENT ====================
 async function refreshMembers() {
   const tb = document.getElementById('memberTable');
   if (!tb) return;
@@ -873,7 +967,6 @@ async function refreshMembers() {
   const keyword = document.getElementById('searchMember')?.value.toLowerCase() || "";
   const statusFilter = document.getElementById('statusFilter')?.value || "";
 
-  // Gunakan filtered members (hanya yang deposit hari ini)
   const filteredMembers = getFilteredMembers().filter(m => {
     const originalId = extractOriginalId(m.id);
     const matchKeyword = originalId.toLowerCase().includes(keyword) || 
@@ -893,15 +986,16 @@ async function refreshMembers() {
     if (currentDate === today) {
       tb.innerHTML = `<tr><td colspan="11" class="empty-state">
         <div class="empty-state-icon">📊</div>
-        <div class="empty-state-title">Data Kosong - Hari Ini</div>
-        <div class="empty-state-desc">Belum ada member yang melakukan deposit pada <strong>${formatDateForDisplay(currentDate)}</strong></div>
-        <div class="empty-state-hint">Data akan muncul otomatis ketika ada deposit baru</div>
+        <div class="empty-state-title">Database Kosong - Hari Ini</div>
+        <div class="empty-state-desc">Belum ada data member untuk <strong>${formatDateForDisplay(currentDate)}</strong></div>
+        <div class="empty-state-hint">Gunakan "Terima dari Master" untuk import data member</div>
       </td></tr>`;
     } else {
       tb.innerHTML = `<tr><td colspan="11" class="empty-state">
         <div class="empty-state-icon">📊</div>
-        <div class="empty-state-title">Data Kosong</div>
-        <div class="empty-state-desc">Tidak ada member yang melakukan deposit pada <strong>${formatDateForDisplay(currentDate)}</strong></div>
+        <div class="empty-state-title">Database Kosong</div>
+        <div class="empty-state-desc">Tidak ada data member untuk <strong>${formatDateForDisplay(currentDate)}</strong></div>
+        <div class="empty-state-hint">Pada tanggal ini belum ada data member yang diimport</div>
       </td></tr>`;
     }
     
@@ -972,7 +1066,6 @@ async function addDeposit() {
     return;
   }
 
-  // Default to current view date instead of today
   if (!depositDate) {
     depositDate = getCurrentViewDate();
   }
@@ -1011,25 +1104,16 @@ async function addDeposit() {
     if (error) throw error;
 
     state.deposits.push(depositData);
-
-    // Update member's last deposit
-    if (memberId && !finalMemberId.startsWith('manual_')) {
-      const member = state.members.find(m => m.id === memberId);
-      if (member) {
-        const currentLastDeposit = member.last_deposit ? new Date(member.last_deposit) : new Date(0);
-        const newDepositDate = new Date(depositDate);
-        
-        if (newDepositDate > currentLastDeposit) {
-          await supabase
-            .from('members')
-            .update({ last_deposit: depositDate })
-            .eq('id', memberId)
-            .eq('admin_username', currentAdmin.username);
-
-          member.last_deposit = depositDate;
-        }
-      }
+    
+    if (!dateWiseData[depositDate]) {
+      dateWiseData[depositDate] = {
+        members: [],
+        deposits: []
+      };
     }
+    dateWiseData[depositDate].deposits.push(depositData);
+
+    // ❌ TIDAK ADA UPDATE last_deposit - biarkan sesuai data master
 
     document.getElementById('depositAmount').value = '';
     document.getElementById('depositManual').value = '';
@@ -1056,7 +1140,6 @@ function refreshDeposits() {
   const keyword = document.getElementById('searchDeposit')?.value.toLowerCase() || "";
   const currentDate = getCurrentViewDate();
 
-  // Gunakan filtered deposits (hanya hari ini)
   let filteredDeposits = getFilteredDeposits();
   
   if (keyword) {
@@ -1086,6 +1169,7 @@ function refreshDeposits() {
         <div class="empty-state-icon">💸</div>
         <div class="empty-state-title">Tidak Ada Deposit</div>
         <div class="empty-state-desc">Tidak ada riwayat deposit pada <strong>${formatDateForDisplay(currentDate)}</strong></div>
+        <div class="empty-state-hint">Anda bisa menambah deposit untuk tanggal ini jika ada yang tertinggal</div>
       </td></tr>`;
     }
     return;
@@ -1141,6 +1225,8 @@ async function editDeposit(depositId) {
       deposit.date = newDate;
     }
 
+    organizeDataByDate();
+
     refreshDeposits();
     refreshChart();
     refreshDailySummary();
@@ -1164,6 +1250,7 @@ async function deleteDeposit(depositId) {
     if (error) throw error;
 
     state.deposits = state.deposits.filter(d => d.id !== depositId);
+    organizeDataByDate();
 
     refreshDeposits();
     refreshChart();
@@ -1372,7 +1459,6 @@ function refreshDailySummary() {
       memberDesc = 'Melakukan deposit hingga tanggal tersebut';
     }
   } else {
-    // Default view - use current view date
     const currentDate = getCurrentViewDate();
     const today = getCurrentLocalDate();
     filteredDeposits = getFilteredDeposits();
@@ -1447,11 +1533,6 @@ function resetFilter() {
   refreshChart();
 }
 
-// ==================== IMPORT/EXPORT ====================
-async function importFromMaster() {
-  alert('Fitur import dari Master akan tersedia setelah setup Master selesai');
-}
-
 // ==================== FORMATTING ====================
 const inputAmt = document.getElementById('depositAmount');
 if (inputAmt) {
@@ -1475,7 +1556,6 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('fromDate').value = '';
   document.getElementById('toDate').value = '';
 
-  // Initialize daily system
   initializeDailySystem();
 
   const savedUser = localStorage.getItem('currentAdminUser');
