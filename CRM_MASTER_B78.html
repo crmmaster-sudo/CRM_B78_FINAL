@@ -170,6 +170,202 @@
     padding: 6px 12px;
     font-size: 12px;
   }
+
+  /* ==================== NAVIGASI TANGGAL BARU ==================== */
+  .date-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin: 20px 0;
+    padding: 16px;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .nav-btn {
+    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    background: white;
+    color: #374151;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .nav-btn:hover {
+    background: #f8fafc;
+    border-color: #9ca3af;
+  }
+
+  .nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .current-date-display {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+    min-width: 200px;
+    text-align: center;
+    padding: 8px 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .date-quick-nav {
+    display: flex;
+    gap: 8px;
+    margin-left: 16px;
+  }
+
+  .quick-nav-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .quick-nav-btn:hover {
+    background: #e2e8f0;
+  }
+
+  .comparison-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .comparison-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .comparison-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .comparison-value {
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    margin: 8px 0;
+  }
+
+  .comparison-value.admin {
+    color: #10b981;
+  }
+
+  .comparison-value.master {
+    color: #3b82f6;
+  }
+
+  .comparison-diff {
+    text-align: center;
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 8px;
+  }
+
+  .diff-positive {
+    color: #10b981;
+    font-weight: 600;
+  }
+
+  .diff-negative {
+    color: #ef4444;
+    font-weight: 600;
+  }
+
+  .daily-breakdown {
+    margin-top: 24px;
+  }
+
+  .breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .breakdown-table th,
+  .breakdown-table td {
+    padding: 10px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+  }
+
+  .breakdown-table th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .breakdown-table tr:hover {
+    background: #f8fafc;
+  }
+
+  /* Data Source Tracking */
+  .data-source-info {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+  }
+
+  .data-source-header {
+    font-weight: 600;
+    color: #166534;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .data-source-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .data-source-stat {
+    text-align: center;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #dcfce7;
+  }
+
+  .data-source-value {
+    font-weight: 700;
+    font-size: 16px;
+    color: #166534;
+    margin-bottom: 4px;
+  }
+
+  .data-source-label {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+  }
 </style>
 </head>
 <body>
@@ -226,6 +422,54 @@
         </div>
       </div>
 
+      <!-- NAVIGASI TANGGAL BARU -->
+      <div class="date-navigation">
+        <button class="nav-btn" onclick="navigateDate('prev')">
+          ← Sebelumnya
+        </button>
+        
+        <div class="current-date-display" id="currentDateDisplay">
+          Loading...
+        </div>
+        
+        <button class="nav-btn" onclick="navigateDate('next')" id="nextDateBtn">
+          Berikutnya →
+        </button>
+
+        <div class="date-quick-nav">
+          <button class="quick-nav-btn" onclick="goToDate('today')">Hari Ini</button>
+          <button class="quick-nav-btn" onclick="goToDate('yesterday')">Kemarin</button>
+          <button class="quick-nav-btn" onclick="goToDate('week')">Minggu Ini</button>
+        </div>
+      </div>
+
+      <!-- DATA SOURCE TRACKING -->
+      <div class="data-source-info" id="dataSourceInfo" style="display:none">
+        <div class="data-source-header">
+          📊 Tracking Data Source - Tanggal: <span id="trackingDate"></span>
+        </div>
+        <div class="muted">Monitor data yang Anda berikan ke admin vs total data yang diproses</div>
+        
+        <div class="data-source-stats">
+          <div class="data-source-stat">
+            <div class="data-source-value" id="yourDataCount">0</div>
+            <div class="data-source-label">Data Anda</div>
+          </div>
+          <div class="data-source-stat">
+            <div class="data-source-value" id="totalDataCount">0</div>
+            <div class="data-source-label">Total Data Diproses</div>
+          </div>
+          <div class="data-source-stat">
+            <div class="data-source-value" id="yourPercentage">0%</div>
+            <div class="data-source-label">Kontribusi Anda</div>
+          </div>
+          <div class="data-source-stat">
+            <div class="data-source-value" id="successRate">0%</div>
+            <div class="data-source-label">Success Rate</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Statistics Cards -->
       <div class="stats-grid" id="adminStats">
         <div class="stat-card">
@@ -247,6 +491,44 @@
           <div class="stat-label">Total Pendapatan</div>
           <div class="stat-value" id="totalRevenue">Rp 0</div>
           <div class="muted">Keseluruhan</div>
+        </div>
+      </div>
+
+      <!-- PERBANDINGAN PENDAPATAN HARIAN -->
+      <div class="comparison-stats" id="dailyComparison" style="display:none">
+        <div class="comparison-card">
+          <div class="comparison-title">Pendapatan Admin (Harian)</div>
+          <div class="comparison-value admin" id="adminDailyRevenue">Rp 0</div>
+          <div class="muted" style="text-align:center">Total dari semua admin</div>
+          <div class="comparison-diff" id="adminDailyDiff"></div>
+        </div>
+        <div class="comparison-card">
+          <div class="comparison-title">Data Anda (Harian)</div>
+          <div class="comparison-value master" id="masterDailyRevenue">Rp 0</div>
+          <div class="muted" style="text-align:center">Berdasarkan kontribusi data Anda</div>
+          <div class="comparison-diff" id="masterDailyDiff"></div>
+        </div>
+      </div>
+
+      <!-- BREAKDOWN HARIAN PER ADMIN -->
+      <div class="daily-breakdown" id="dailyBreakdown" style="display:none">
+        <div class="subsection-title">Breakdown Harian per Admin</div>
+        <div class="breakdown-table-container">
+          <table class="breakdown-table">
+            <thead>
+              <tr>
+                <th>Admin</th>
+                <th>Jumlah Member</th>
+                <th>Jumlah Transaksi</th>
+                <th>Total Pendapatan</th>
+                <th>Rata-rata per Member</th>
+                <th>Data dari Anda</th>
+              </tr>
+            </thead>
+            <tbody id="breakdownTableBody">
+              <!-- Data akan diisi oleh JavaScript -->
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -324,6 +606,16 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label">Sumber Data</label>
+            <select id="dataSource">
+              <option value="master">Dari Saya (Master)</option>
+              <option value="admin">Dari Admin</option>
+              <option value="other">Sumber Lain</option>
+            </select>
+            <div class="muted" style="margin-top:4px">Tandai sumber data untuk tracking</div>
+          </div>
+
+          <div class="form-group">
             <label class="form-label">Batch Import</label>
             <div class="batch-info">
               <strong>Batch ID Saat Ini:</strong> <span id="currentBatchId">-</span>
@@ -375,6 +667,7 @@
             <select id="reportType">
               <option value="database">Data Member</option>
               <option value="omset">Data Transaksi</option>
+              <option value="source">Data Berdasarkan Sumber</option>
             </select>
           </div>
           
@@ -454,8 +747,242 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser = null;
 let currentBatchId = null;
 
+// ==================== VARIABEL NAVIGASI TANGGAL ====================
+let currentViewDate = new Date(); // Tanggal yang sedang dilihat
+let dailyComparisonData = {}; // Data perbandingan harian
+
+// ==================== FUNGSI NAVIGASI TANGGAL ====================
+function navigateDate(direction) {
+  const newDate = new Date(currentViewDate);
+  
+  if (direction === 'prev') {
+    newDate.setDate(newDate.getDate() - 1);
+  } else if (direction === 'next') {
+    newDate.setDate(newDate.getDate() + 1);
+  }
+  
+  // Cek jika tanggal melebihi hari ini
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  
+  if (newDate > today) {
+    showImportStatus('Tidak bisa melihat data masa depan', false);
+    return;
+  }
+  
+  currentViewDate = newDate;
+  updateDateDisplay();
+  loadDailyData();
+}
+
+function goToDate(type) {
+  const newDate = new Date();
+  
+  switch (type) {
+    case 'today':
+      currentViewDate = new Date();
+      break;
+    case 'yesterday':
+      newDate.setDate(newDate.getDate() - 1);
+      currentViewDate = newDate;
+      break;
+    case 'week':
+      newDate.setDate(newDate.getDate() - 7);
+      currentViewDate = newDate;
+      break;
+  }
+  
+  updateDateDisplay();
+  loadDailyData();
+}
+
+function updateDateDisplay() {
+  const dateDisplay = document.getElementById('currentDateDisplay');
+  const options = { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  };
+  
+  const formattedDate = currentViewDate.toLocaleDateString('id-ID', options);
+  dateDisplay.textContent = formattedDate;
+  
+  // Update tombol next berdasarkan apakah tanggal adalah hari ini
+  const today = new Date();
+  const isToday = currentViewDate.toDateString() === today.toDateString();
+  document.getElementById('nextDateBtn').disabled = isToday;
+}
+
+// ==================== LOAD DATA HARIAN DENGAN PERBAIKAN LOGIKA ====================
+async function loadDailyData() {
+  try {
+    showImportStatus('Memuat data harian...', true);
+    
+    const dateStr = currentViewDate.toISOString().split('T')[0];
+    const prevDate = new Date(currentViewDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateStr = prevDate.toISOString().split('T')[0];
+    
+    // Update tracking date
+    document.getElementById('trackingDate').textContent = dateStr;
+    
+    // Load data untuk tanggal yang dipilih
+    const { data: dailyDeposits, error: dailyError } = await supabase
+      .from('deposits')
+      .select('*')
+      .eq('date', dateStr);
+    
+    if (dailyError) throw dailyError;
+    
+    // Load data untuk tanggal sebelumnya (untuk perbandingan)
+    const { data: prevDeposits, error: prevError } = await supabase
+      .from('deposits')
+      .select('*')
+      .eq('date', prevDateStr);
+    
+    if (prevError) throw prevError;
+    
+    // Load data member untuk tanggal yang dipilih dengan tracking source
+    const { data: dailyMembers, error: memberError } = await supabase
+      .from('members')
+      .select('*')
+      .gte('created_at', dateStr + 'T00:00:00')
+      .lte('created_at', dateStr + 'T23:59:59');
+    
+    if (memberError) throw memberError;
+    
+    // Hitung data berdasarkan source
+    const yourDataCount = dailyMembers ? dailyMembers.filter(m => m.data_source === 'master').length : 0;
+    const totalDataCount = dailyMembers ? dailyMembers.length : 0;
+    const yourPercentage = totalDataCount > 0 ? Math.round((yourDataCount / totalDataCount) * 100) : 0;
+    
+    // Update data source tracking
+    document.getElementById('yourDataCount').textContent = yourDataCount;
+    document.getElementById('totalDataCount').textContent = totalDataCount;
+    document.getElementById('yourPercentage').textContent = yourPercentage + '%';
+    
+    // Tampilkan data source info jika ada data
+    if (totalDataCount > 0) {
+      document.getElementById('dataSourceInfo').style.display = 'block';
+    } else {
+      document.getElementById('dataSourceInfo').style.display = 'none';
+    }
+    
+    // Process revenue data dengan logika yang diperbaiki
+    const adminRevenue = dailyDeposits ? dailyDeposits.reduce((sum, d) => sum + (d.amount || 0), 0) : 0;
+    const prevAdminRevenue = prevDeposits ? prevDeposits.reduce((sum, d) => sum + (d.amount || 0), 0) : 0;
+    
+    // PERBAIKAN: Hitung revenue master berdasarkan kontribusi data
+    const masterRevenue = yourPercentage > 0 ? (adminRevenue * yourPercentage / 100) : 0;
+    const prevMasterRevenue = prevAdminRevenue > 0 ? (prevAdminRevenue * yourPercentage / 100) : 0;
+    
+    // Hitung success rate (data yang menghasilkan transaksi)
+    const successfulData = dailyMembers ? dailyMembers.filter(m => {
+      const hasDeposit = dailyDeposits && dailyDeposits.some(d => d.member_id === m.id);
+      return hasDeposit;
+    }).length : 0;
+    
+    const successRate = totalDataCount > 0 ? Math.round((successfulData / totalDataCount) * 100) : 0;
+    document.getElementById('successRate').textContent = successRate + '%';
+    
+    // Update UI
+    document.getElementById('adminDailyRevenue').textContent = formatCurrency(adminRevenue);
+    document.getElementById('masterDailyRevenue').textContent = formatCurrency(masterRevenue);
+    
+    // Hitung perbedaan
+    const adminDiff = adminRevenue - prevAdminRevenue;
+    const masterDiff = masterRevenue - prevMasterRevenue;
+    
+    document.getElementById('adminDailyDiff').innerHTML = adminDiff !== 0 ? 
+      `<span class="${adminDiff > 0 ? 'diff-positive' : 'diff-negative'}">${adminDiff > 0 ? '↑' : '↓'} ${formatCurrency(Math.abs(adminDiff))} dari kemarin</span>` :
+      'Sama dengan kemarin';
+    
+    document.getElementById('masterDailyDiff').innerHTML = masterDiff !== 0 ? 
+      `<span class="${masterDiff > 0 ? 'diff-positive' : 'diff-negative'}">${masterDiff > 0 ? '↑' : '↓'} ${formatCurrency(Math.abs(masterDiff))} dari kemarin</span>` :
+      'Sama dengan kemarin';
+    
+    // Tampilkan section perbandingan
+    document.getElementById('dailyComparison').style.display = 'grid';
+    
+    // Load breakdown per admin
+    await loadDailyBreakdown(dateStr, dailyMembers, dailyDeposits);
+    
+    showImportStatus(`Data harian ${dateStr} berhasil dimuat`, true);
+    
+  } catch (error) {
+    console.error('Error loading daily data:', error);
+    showImportStatus('Error memuat data harian', false);
+  }
+}
+
+// ==================== LOAD BREAKDOWN HARIAN PER ADMIN DENGAN DATA SOURCE ====================
+async function loadDailyBreakdown(dateStr, dailyMembers, dailyDeposits) {
+  try {
+    // Get all admins
+    const { data: admins, error: adminError } = await supabase
+      .from('admins')
+      .select('username')
+      .eq('role', 'admin');
+    
+    if (adminError) throw adminError;
+    
+    const breakdownBody = document.getElementById('breakdownTableBody');
+    breakdownBody.innerHTML = '';
+    
+    if (!admins || admins.length === 0) {
+      breakdownBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#666">Tidak ada data admin</td></tr>';
+      document.getElementById('dailyBreakdown').style.display = 'none';
+      return;
+    }
+    
+    let hasData = false;
+    
+    for (const admin of admins) {
+      // Filter members untuk admin ini
+      const adminMembers = dailyMembers ? dailyMembers.filter(m => m.admin_username === admin.username) : [];
+      const adminMemberIds = adminMembers.map(m => m.id);
+      
+      // Filter deposits untuk admin ini
+      const adminDeposits = dailyDeposits ? dailyDeposits.filter(d => d.admin_username === admin.username) : [];
+      
+      // Hitung data dari master untuk admin ini
+      const yourDataToAdmin = adminMembers.filter(m => m.data_source === 'master').length;
+      
+      const memberCount = adminMembers.length;
+      const transactionCount = adminDeposits.length;
+      const revenue = adminDeposits.reduce((sum, d) => sum + (d.amount || 0), 0);
+      const avgPerMember = memberCount > 0 ? revenue / memberCount : 0;
+      
+      if (memberCount > 0 || transactionCount > 0) {
+        hasData = true;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>${admin.username}</strong></td>
+          <td>${memberCount}</td>
+          <td>${transactionCount}</td>
+          <td>${formatCurrency(revenue)}</td>
+          <td>${formatCurrency(avgPerMember)}</td>
+          <td>${yourDataToAdmin} data</td>
+        `;
+        breakdownBody.appendChild(row);
+      }
+    }
+    
+    if (hasData) {
+      document.getElementById('dailyBreakdown').style.display = 'block';
+    } else {
+      document.getElementById('dailyBreakdown').style.display = 'none';
+      breakdownBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#666">Tidak ada data untuk tanggal ini</td></tr>';
+    }
+    
+  } catch (error) {
+    console.error('Error loading daily breakdown:', error);
+    document.getElementById('dailyBreakdown').style.display = 'none';
+  }
+}
+
 // ==================== FIXED TIMEZONE FUNCTIONS ====================
-// ✅ PERBAIKAN: Fungsi untuk mendapatkan tanggal lokal tanpa timezone issue
 function getCurrentLocalDate() {
   const now = new Date();
   const year = now.getFullYear();
@@ -464,23 +991,16 @@ function getCurrentLocalDate() {
   return `${year}-${month}-${day}`;
 }
 
-// ✅ PERBAIKAN: Fungsi parse Excel date yang FIXED untuk timezone
 function parseExcelDate(excelDate) {
   try {
-    // Jika null atau undefined
-    if (!excelDate) {
-      return generateRandomDate();
-    }
-
-    // Jika sudah format YYYY-MM-DD, return langsung (TIDAK diubah)
+    if (!excelDate) return generateRandomDate();
+    
     if (typeof excelDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(excelDate)) {
-      return excelDate; // ✅ TIDAK ADA PERUBAHAN - biarkan tetap sama
+      return excelDate;
     }
 
-    // Jika dari Excel sebagai Date object
     if (excelDate instanceof Date) {
       if (!isNaN(excelDate.getTime())) {
-        // ✅ PERBAIKAN: Gunakan local date, bukan UTC
         const year = excelDate.getFullYear();
         const month = String(excelDate.getMonth() + 1).padStart(2, '0');
         const day = String(excelDate.getDate()).padStart(2, '0');
@@ -488,19 +1008,13 @@ function parseExcelDate(excelDate) {
       }
     }
 
-    // Jika dari Excel sebagai number (Excel date serial)
     if (typeof excelDate === 'number') {
-      // Excel date serial to JavaScript Date (Windows epoch)
       const excelEpoch = new Date(1899, 11, 30);
       const jsDate = new Date(excelEpoch.getTime() + (excelDate - 1) * 86400000);
       
-      // Handle Excel bug for 1900 (Excel thinks 1900 was a leap year)
-      if (excelDate > 59) {
-        jsDate.setDate(jsDate.getDate() - 1);
-      }
+      if (excelDate > 59) jsDate.setDate(jsDate.getDate() - 1);
       
       if (!isNaN(jsDate.getTime())) {
-        // ✅ PERBAIKAN: Gunakan local date, bukan UTC
         const year = jsDate.getFullYear();
         const month = String(jsDate.getMonth() + 1).padStart(2, '0');
         const day = String(jsDate.getDate()).padStart(2, '0');
@@ -508,48 +1022,28 @@ function parseExcelDate(excelDate) {
       }
     }
 
-    // Jika format string dengan berbagai separator
     if (typeof excelDate === 'string') {
       const cleanDate = excelDate.toString().trim();
-      
-      // Coba parse sebagai local date string
       const localDate = new Date(cleanDate);
       if (!isNaN(localDate.getTime())) {
-        // ✅ PERBAIKAN: Gunakan local date components
         const year = localDate.getFullYear();
         const month = String(localDate.getMonth() + 1).padStart(2, '0');
         const day = String(localDate.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
       }
 
-      // Coba format DD/MM/YYYY atau DD-MM-YYYY
       const parts = cleanDate.split(/[/-]/);
       if (parts.length === 3) {
         let day, month, year;
-
-        // Deteksi format berdasarkan panjang bagian pertama
         if (parts[0].length === 4) {
-          // Format YYYY/MM/DD atau YYYY-MM-DD
-          year = parts[0];
-          month = parts[1];
-          day = parts[2];
+          year = parts[0]; month = parts[1]; day = parts[2];
         } else {
-          // Format DD/MM/YYYY atau DD-MM-YYYY
-          day = parts[0];
-          month = parts[1];
-          year = parts[2];
+          day = parts[0]; month = parts[1]; year = parts[2];
         }
-
-        // Pastikan format 2 digit untuk bulan dan hari
         month = month.padStart(2, '0');
         day = day.padStart(2, '0');
-        
-        // Handle tahun 2 digit
-        if (year.length === 2) {
-          year = '20' + year;
-        }
+        if (year.length === 2) year = '20' + year;
 
-        // ✅ PERBAIKAN: Buat date dengan komponen lokal
         const parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
         if (!isNaN(parsedDate.getTime())) {
           const finalYear = parsedDate.getFullYear();
@@ -560,7 +1054,6 @@ function parseExcelDate(excelDate) {
       }
     }
 
-    // Fallback: gunakan tanggal acak
     return generateRandomDate();
     
   } catch (error) {
@@ -569,13 +1062,10 @@ function parseExcelDate(excelDate) {
   }
 }
 
-// ✅ HELPER FUNCTION: Generate random date within 90 days (FIXED)
 function generateRandomDate() {
   const randomDays = Math.floor(Math.random() * 90);
   const randomDate = new Date();
   randomDate.setDate(randomDate.getDate() - randomDays);
-  
-  // ✅ PERBAIKAN: Gunakan local date components
   const year = randomDate.getFullYear();
   const month = String(randomDate.getMonth() + 1).padStart(2, '0');
   const day = String(randomDate.getDate()).padStart(2, '0');
@@ -587,37 +1077,29 @@ async function checkStorageUsage() {
   try {
     showImportStatus('Mengecek usage storage...', true);
     
-    // Cek total members
     const { count: memberCount, error: memberError } = await supabase
       .from('members')
       .select('*', { count: 'exact', head: true });
-    
     if (memberError) throw memberError;
 
-    // Cek total deposits  
     const { count: depositCount, error: depositError } = await supabase
       .from('deposits')
       .select('*', { count: 'exact', head: true });
-    
     if (depositError) throw depositError;
 
-    // Cek total admins
     const { count: adminCount, error: adminError } = await supabase
       .from('admins')
       .select('*', { count: 'exact', head: true });
-    
     if (adminError) throw adminError;
 
     const totalRecords = (memberCount || 0) + (depositCount || 0) + (adminCount || 0);
-    const estimatedSizeKB = totalRecords * 1; // 1KB per record
+    const estimatedSizeKB = totalRecords * 1;
     const estimatedSizeMB = estimatedSizeKB / 1024;
     const percentageUsed = (estimatedSizeMB / 500) * 100;
     
-    // Update UI
     document.getElementById('storageUsage').textContent = `${estimatedSizeMB.toFixed(2)} MB`;
     document.getElementById('storagePercentage').textContent = `${percentageUsed.toFixed(1)}%`;
     
-    // Show warning if > 80%
     const warningElement = document.getElementById('storageWarning');
     const infoElement = document.getElementById('storageInfo');
     
@@ -631,14 +1113,6 @@ async function checkStorageUsage() {
       showImportStatus(`✅ Storage usage: ${percentageUsed.toFixed(1)}% - Aman`, true);
     }
     
-    return { 
-      estimatedSizeMB, 
-      percentageUsed, 
-      memberCount: memberCount || 0, 
-      depositCount: depositCount || 0,
-      adminCount: adminCount || 0
-    };
-    
   } catch (error) {
     console.error('Storage check error:', error);
     showImportStatus('Error mengecek storage', false);
@@ -651,12 +1125,10 @@ async function cleanupOldData() {
   try {
     showImportStatus('Membersihkan data lama...', true);
     
-    // Hitung 6 bulan yang lalu
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     const sixMonthsAgoStr = sixMonthsAgo.toISOString().slice(0, 10);
     
-    // Cari members tanpa deposit > 6 bulan
     const { data: oldMembers, error: findError } = await supabase
       .from('members')
       .select('id, name, last_deposit, batch_id')
@@ -669,11 +1141,9 @@ async function cleanupOldData() {
       return;
     }
     
-    // Backup data sebelum hapus
     showImportStatus(`Membackup ${oldMembers.length} data lama...`, true);
     await exportBackup('old_members_backup', oldMembers);
     
-    // Hapus data
     const { error: deleteError } = await supabase
       .from('members')
       .delete()
@@ -682,8 +1152,6 @@ async function cleanupOldData() {
     if (deleteError) throw deleteError;
     
     showImportStatus(`✅ Berhasil menghapus ${oldMembers.length} data lama`, true);
-    
-    // Refresh data dan cek storage
     await refreshAllData();
     await checkStorageUsage();
     
@@ -708,28 +1176,15 @@ async function exportAllBackups() {
   try {
     showImportStatus('Membackup semua data...', true);
     
-    // Backup members
-    const { data: members, error: membersError } = await supabase
-      .from('members')
-      .select('*');
-    
+    const { data: members, error: membersError } = await supabase.from('members').select('*');
     if (membersError) throw membersError;
     
-    // Backup deposits
-    const { data: deposits, error: depositsError } = await supabase
-      .from('deposits')
-      .select('*');
-    
+    const { data: deposits, error: depositsError } = await supabase.from('deposits').select('*');
     if (depositsError) throw depositsError;
     
-    // Backup admins
-    const { data: admins, error: adminsError } = await supabase
-      .from('admins')
-      .select('*');
-    
+    const { data: admins, error: adminsError } = await supabase.from('admins').select('*');
     if (adminsError) throw adminsError;
     
-    // Create backup file
     const wb = XLSX.utils.book_new();
     
     if (members && members.length > 0) {
@@ -774,7 +1229,6 @@ async function autoCleanupOnLogin() {
     
     if (oldMembers && oldMembers.length > 0) {
       console.log(`Auto-cleanup: Found ${oldMembers.length} old members`);
-      // Bisa tambahkan auto-delete di sini jika mau
     }
     
   } catch (error) {
@@ -833,7 +1287,7 @@ function updateBatchDisplay() {
   document.getElementById('currentBatchId').textContent = currentBatchId || '-';
 }
 
-// ==================== BATCH HISTORY & CHECKING (FIXED VERSION) ====================
+// ==================== BATCH HISTORY & CHECKING ====================
 async function showBatchHistory() {
   document.getElementById('batchHistorySection').style.display = 'block';
   await refreshBatchHistory();
@@ -847,16 +1301,14 @@ async function refreshBatchHistory() {
   try {
     showImportStatus('Memuat history batch...', true);
     
-    // Query untuk mendapatkan semua batch yang ada - TANPA FILTER TANGGAL
     const { data: batches, error } = await supabase
       .from('members')
-      .select('batch_id, created_at, admin_username, id')
+      .select('batch_id, created_at, admin_username, id, data_source')
       .not('batch_id', 'is', null)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Group by batch_id untuk menghitung jumlah member per batch
     const batchGroups = {};
     batches.forEach(member => {
       if (member.batch_id) {
@@ -865,10 +1317,14 @@ async function refreshBatchHistory() {
             batch_id: member.batch_id,
             created_at: member.created_at,
             admin_username: member.admin_username,
-            count: 0
+            count: 0,
+            from_master: 0
           };
         }
         batchGroups[member.batch_id].count++;
+        if (member.data_source === 'master') {
+          batchGroups[member.batch_id].from_master++;
+        }
       }
     });
 
@@ -881,17 +1337,13 @@ async function refreshBatchHistory() {
       return;
     }
 
-    // Urutkan berdasarkan tanggal created_at (yang paling baru di atas)
     batchList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
     batchHistoryList.innerHTML = '';
     
     batchList.forEach(batch => {
       const batchItem = document.createElement('div');
       batchItem.className = 'batch-item';
-      if (batch.batch_id === currentBatchId) {
-        batchItem.classList.add('active');
-      }
+      if (batch.batch_id === currentBatchId) batchItem.classList.add('active');
       
       const batchDate = new Date(batch.created_at);
       const now = new Date();
@@ -903,6 +1355,7 @@ async function refreshBatchHistory() {
           <div class="batch-info-small">
             ${batchDate.toLocaleString('id-ID')} | 
             Admin: ${batch.admin_username || 'Unknown'}
+            ${batch.from_master > 0 ? ` | ${batch.from_master} dari Anda` : ''}
             ${isToday ? ' <span style="color:#10b981;">(Hari Ini)</span>' : ''}
           </div>
         </div>
@@ -916,7 +1369,7 @@ async function refreshBatchHistory() {
       batchHistoryList.appendChild(batchItem);
     });
 
-    showImportStatus(`Ditemukan ${batchList.length} batch (termasuk hari sebelumnya)`, true);
+    showImportStatus(`Ditemukan ${batchList.length} batch`, true);
     
   } catch (error) {
     console.error('Error loading batch history:', error);
@@ -924,7 +1377,6 @@ async function refreshBatchHistory() {
   }
 }
 
-// ==================== FILTER BATCH BY DATE ====================
 async function filterBatchByDate() {
   const fromDate = document.getElementById('batchFromDate').value;
   const toDate = document.getElementById('batchToDate').value;
@@ -934,23 +1386,16 @@ async function filterBatchByDate() {
     
     let query = supabase
       .from('members')
-      .select('batch_id, created_at, admin_username, id')
+      .select('batch_id, created_at, admin_username, id, data_source')
       .not('batch_id', 'is', null);
 
-    // Tambahkan filter tanggal jika ada
-    if (fromDate) {
-      query = query.gte('created_at', fromDate + 'T00:00:00');
-    }
-    if (toDate) {
-      query = query.lte('created_at', toDate + 'T23:59:59');
-    }
+    if (fromDate) query = query.gte('created_at', fromDate + 'T00:00:00');
+    if (toDate) query = query.lte('created_at', toDate + 'T23:59:59');
 
-    const { data: batches, error } = await query
-      .order('created_at', { ascending: false });
+    const { data: batches, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Group by batch_id
     const batchGroups = {};
     batches.forEach(member => {
       if (member.batch_id) {
@@ -959,10 +1404,14 @@ async function filterBatchByDate() {
             batch_id: member.batch_id,
             created_at: member.created_at,
             admin_username: member.admin_username,
-            count: 0
+            count: 0,
+            from_master: 0
           };
         }
         batchGroups[member.batch_id].count++;
+        if (member.data_source === 'master') {
+          batchGroups[member.batch_id].from_master++;
+        }
       }
     });
 
@@ -975,17 +1424,13 @@ async function filterBatchByDate() {
       return;
     }
 
-    // Urutkan berdasarkan tanggal
     batchList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
     batchHistoryList.innerHTML = '';
     
     batchList.forEach(batch => {
       const batchItem = document.createElement('div');
       batchItem.className = 'batch-item';
-      if (batch.batch_id === currentBatchId) {
-        batchItem.classList.add('active');
-      }
+      if (batch.batch_id === currentBatchId) batchItem.classList.add('active');
       
       batchItem.innerHTML = `
         <div>
@@ -993,6 +1438,7 @@ async function filterBatchByDate() {
           <div class="batch-info-small">
             ${new Date(batch.created_at).toLocaleString('id-ID')} | 
             Admin: ${batch.admin_username || 'Unknown'}
+            ${batch.from_master > 0 ? ` | ${batch.from_master} dari Anda` : ''}
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -1016,7 +1462,6 @@ async function filterBatchByDate() {
 
 async function viewBatchDetails(batchId) {
   try {
-    // Ambil detail member dalam batch tertentu
     const { data: members, error } = await supabase
       .from('members')
       .select('*')
@@ -1025,12 +1470,14 @@ async function viewBatchDetails(batchId) {
 
     if (error) throw error;
 
-    // Tampilkan dalam modal atau alert
+    const fromMaster = members.filter(m => m.data_source === 'master').length;
+    const fromOther = members.length - fromMaster;
+    
     const memberList = members.map(member => 
-      `- ${member.name} (${member.id}) - ${new Date(member.created_at).toLocaleDateString('id-ID')}`
+      `- ${member.name} (${member.id}) - ${new Date(member.created_at).toLocaleDateString('id-ID')} ${member.data_source === 'master' ? ' [DARI ANDA]' : ''}`
     ).join('\n');
 
-    alert(`Detail Batch: ${batchId}\nTotal Member: ${members.length}\n\nDaftar Member:\n${memberList}`);
+    alert(`Detail Batch: ${batchId}\nTotal Member: ${members.length}\nDari Anda: ${fromMaster}\nDari Sumber Lain: ${fromOther}\n\nDaftar Member:\n${memberList}`);
     
   } catch (error) {
     console.error('Error viewing batch details:', error);
@@ -1099,11 +1546,11 @@ function openMain(user) {
   document.getElementById('leaderName').textContent = `${user.name} (${user.role})`;
   localStorage.setItem('currentMasterUser', JSON.stringify(user));
   
-  // Generate batch ID pertama kali
   generateNewBatch();
+  updateDateDisplay();
   refreshAllData();
+  loadDailyData();
   
-  // Cek storage usage dan auto-cleanup
   setTimeout(() => {
     checkStorageUsage();
     autoCleanupOnLogin();
@@ -1111,7 +1558,6 @@ function openMain(user) {
 }
 
 // ==================== USER MANAGEMENT ====================
-// REVISED FUNCTION: Tampilkan daftar user dengan grouping
 async function refreshAdminTable() {
   try {
     const { data: admins, error } = await supabase
@@ -1130,14 +1576,10 @@ async function refreshAdminTable() {
       return;
     }
 
-    // Group admins by role
     const leaders = admins.filter(admin => admin.role === 'leader');
     const adminUsers = admins.filter(admin => admin.role === 'admin');
-
-    // Get performance data for each admin
     const adminPerformance = await getAdminPerformance();
 
-    // Render Leaders group
     if (leaders.length > 0) {
       const leaderGroup = document.createElement('div');
       leaderGroup.className = 'user-table-group';
@@ -1174,7 +1616,6 @@ async function refreshAdminTable() {
       container.appendChild(leaderGroup);
     }
 
-    // Render Admins group
     if (adminUsers.length > 0) {
       const adminGroup = document.createElement('div');
       adminGroup.className = 'user-table-group';
@@ -1229,7 +1670,6 @@ async function refreshAdminTable() {
       container.appendChild(adminGroup);
     }
 
-    // Update stats
     document.getElementById('totalAdmins').textContent = admins.length;
 
   } catch (error) {
@@ -1244,28 +1684,24 @@ async function getAdminPerformance() {
   const to = document.getElementById('toDate').value;
   
   try {
-    // Get all admins
     const { data: admins, error: adminError } = await supabase
       .from('admins')
       .select('username, role')
-      .eq('role', 'admin'); // ✅ Hanya ambil data untuk role admin saja
+      .eq('role', 'admin');
 
     if (adminError) throw adminError;
 
     const performance = {};
 
     for (const admin of admins) {
-      // Get member count for this admin
       let memberQuery = supabase
         .from('members')
         .select('id', { count: 'exact' })
         .eq('admin_username', admin.username);
 
       const { count: memberCount, error: memberError } = await memberQuery;
-
       if (memberError) throw memberError;
 
-      // Get transaction data for this admin
       let depositQuery = supabase
         .from('deposits')
         .select('amount')
@@ -1275,7 +1711,6 @@ async function getAdminPerformance() {
       if (to) depositQuery = depositQuery.lte('date', to);
 
       const { data: deposits, error: depositError } = await depositQuery;
-
       if (depositError) throw depositError;
 
       const transactionCount = deposits ? deposits.length : 0;
@@ -1330,12 +1765,10 @@ async function addAdmin() {
 
     if (error) throw error;
 
-    // Reset form
     document.getElementById('newAdminUser').value = '';
     document.getElementById('newAdminPass').value = '';
     document.getElementById('newAdminName').value = '';
 
-    // Refresh data
     refreshAdminTable();
     populateAdminSelects();
     alert('User berhasil ditambahkan');
@@ -1420,14 +1853,14 @@ async function refreshStats() {
     const from = document.getElementById('fromDate').value;
     const to = document.getElementById('toDate').value;
 
-    // Get total members
+    // Get total members (KESELURUHAN)
     const { data: members, error: membersError } = await supabase
       .from('members')
       .select('id');
 
     if (membersError) throw membersError;
 
-    // Get total transactions and revenue with date filter
+    // Get total transactions and revenue with date filter (KESELURUHAN dalam range)
     let depositQuery = supabase.from('deposits').select('amount');
     
     if (from) depositQuery = depositQuery.gte('date', from);
@@ -1450,10 +1883,11 @@ async function refreshStats() {
   }
 }
 
-// ==================== IMPORT FUNCTION (REVISED - FIXED TIMEZONE ISSUE) ====================
+// ==================== IMPORT FUNCTION DENGAN DATA SOURCE TRACKING ====================
 async function importToAdmin() {
   const fileInput = document.getElementById('fileImport');
   const adminUsername = document.getElementById('assignAdmin').value;
+  const dataSource = document.getElementById('dataSource').value;
 
   if (!fileInput.files.length) {
     showImportStatus('Pilih file Excel terlebih dahulu', false);
@@ -1464,10 +1898,7 @@ async function importToAdmin() {
     return;
   }
 
-  // Generate batch ID jika belum ada
-  if (!currentBatchId) {
-    generateNewBatch();
-  }
+  if (!currentBatchId) generateNewBatch();
 
   const file = fileInput.files[0];
   const reader = new FileReader();
@@ -1496,7 +1927,6 @@ async function importToAdmin() {
 
       showImportStatus(`Memproses ${jsonData.length} data...`, true);
 
-      // Process each row
       const membersToInsert = [];
       const errors = [];
       let successCount = 0;
@@ -1514,7 +1944,6 @@ async function importToAdmin() {
             continue;
           }
 
-          // Generate unique ID dengan batch ID
           const memberId = `${currentBatchId}_${id || `M${Date.now()}${i}`}`;
           const memberName = nama || 'Unknown';
           
@@ -1522,13 +1951,12 @@ async function importToAdmin() {
             const randomDays = Math.floor(Math.random() * 90);
             const randomDate = new Date();
             randomDate.setDate(randomDate.getDate() - randomDays);
-            // ✅ PERBAIKAN: Gunakan local date components
             const year = randomDate.getFullYear();
             const month = String(randomDate.getMonth() + 1).padStart(2, '0');
             const day = String(randomDate.getDate()).padStart(2, '0');
             lastDeposit = `${year}-${month}-${day}`;
           } else {
-            lastDeposit = parseExcelDate(lastDeposit); // ✅ Sudah diperbaiki
+            lastDeposit = parseExcelDate(lastDeposit);
           }
 
           const depositDate = new Date(lastDeposit);
@@ -1547,7 +1975,8 @@ async function importToAdmin() {
             deposit_valid: false,
             has_response: false,
             created_at: new Date().toISOString(),
-            batch_id: currentBatchId // ✅ Simpan batch_id
+            batch_id: currentBatchId,
+            data_source: dataSource // ✅ Simpan sumber data
           });
 
           successCount++;
@@ -1557,7 +1986,6 @@ async function importToAdmin() {
         }
       }
 
-      // Tampilkan warnings jika ada
       if (errors.length > 0) {
         console.warn('Import warnings:', errors);
         if (successCount > 0) {
@@ -1575,34 +2003,25 @@ async function importToAdmin() {
 
       showImportStatus(`Menyimpan ${membersToInsert.length} data ke database...`, true);
 
-      // Insert in batches to avoid timeout
       const batchSize = 50;
       let successfulImports = 0;
 
       for (let i = 0; i < membersToInsert.length; i += batchSize) {
         const batch = membersToInsert.slice(i, i + batchSize);
         
-        const { error } = await supabase
-          .from('members')
-          .insert(batch);
+        const { error } = await supabase.from('members').insert(batch);
 
         if (error) {
           console.error('Batch insert error:', error);
           
-          // Coba insert satu per satu untuk menemukan data yang bermasalah
           if (batch.length > 1) {
             showImportStatus(`Error batch, mencoba insert satu per satu...`, false);
             let singleSuccess = 0;
             
             for (const singleMember of batch) {
               try {
-                const { error: singleError } = await supabase
-                  .from('members')
-                  .insert([singleMember]);
-                  
-                if (!singleError) {
-                  singleSuccess++;
-                }
+                const { error: singleError } = await supabase.from('members').insert([singleMember]);
+                if (!singleError) singleSuccess++;
               } catch (singleErr) {
                 console.error('Single insert error:', singleErr);
               }
@@ -1618,22 +2037,16 @@ async function importToAdmin() {
         showImportStatus(`Progress: ${successfulImports}/${membersToInsert.length} data...`, true);
       }
 
-      // Clear file input
       fileInput.value = '';
-      
-      // Refresh all data
       await refreshAllData();
       
+      const sourceText = dataSource === 'master' ? 'dari Anda' : 'dari ' + dataSource;
       const finalMessage = errors.length > 0 
-        ? `✅ Berhasil mengimpor ${successfulImports} member ke ${adminUsername} (Batch: ${currentBatchId}) (${errors.length} error)`
-        : `✅ Berhasil mengimpor ${successfulImports} member ke ${adminUsername} (Batch: ${currentBatchId})`;
+        ? `✅ Berhasil mengimpor ${successfulImports} member ke ${adminUsername} (${sourceText}) (${errors.length} error)`
+        : `✅ Berhasil mengimpor ${successfulImports} member ke ${adminUsername} (${sourceText})`;
       
       showImportStatus(finalMessage, true);
-      
-      // Auto-generate batch baru untuk import berikutnya
       generateNewBatch();
-      
-      // Cek storage usage setelah import
       await checkStorageUsage();
       
     } catch (error) {
@@ -1649,16 +2062,13 @@ async function importToAdmin() {
   reader.readAsArrayBuffer(file);
 }
 
-// ✅ IMPROVED Template Download function
 function downloadTemplate() {
   const today = new Date();
-  
-  // ✅ PERBAIKAN: Gunakan local date untuk template
   const dates = [
-    getCurrentLocalDate(), // Hari ini (local)
-    new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // 7 hari lalu
-    new Date(today.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), // 15 hari lalu
-    new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) // 30 hari lalu
+    getCurrentLocalDate(),
+    new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    new Date(today.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   ];
 
   const templateData = [
@@ -1666,40 +2076,34 @@ function downloadTemplate() {
       'ID': 'M001',
       'Nama': 'Budi Santoso',
       'Phone': '08123456789',
-      'last_deposit': dates[0] // Hari ini
+      'last_deposit': dates[0]
     },
     {
       'ID': 'M002', 
       'Nama': 'Sari Indah',
       'Phone': '08129876543',
-      'last_deposit': dates[1] // 7 hari lalu
+      'last_deposit': dates[1]
     },
     {
       'ID': 'M003',
       'Nama': 'Andi Wijaya',
       'Phone': '08111222333',
-      'last_deposit': dates[2] // 15 hari lalu
+      'last_deposit': dates[2]
     },
     {
       'ID': 'M004',
       'Nama': 'Rina Melati',
       'Phone': '08144555666',
-      'last_deposit': dates[3] // 30 hari lalu
+      'last_deposit': dates[3]
     }
   ];
 
   const ws = XLSX.utils.json_to_sheet(templateData);
-  
-  // Set column widths
   const wscols = [
-    { wch: 10 }, // ID
-    { wch: 20 }, // Nama  
-    { wch: 15 }, // Phone
-    { wch: 15 }  // last_deposit
+    { wch: 10 }, { wch: 20 }, { wch: 15 }, { wch: 15 }
   ];
   ws['!cols'] = wscols;
 
-  // Set header style
   const range = XLSX.utils.decode_range(ws['!ref']);
   for (let C = range.s.c; C <= range.e.c; ++C) {
     const cell_address = XLSX.utils.encode_cell({ c: C, r: 0 });
@@ -1734,7 +2138,6 @@ async function refreshCharts() {
     const totals = [];
 
     if (adminLabels.length === 0) {
-      // No data - show empty state
       const ctx = document.getElementById('masterChart').getContext('2d');
       if (chartInstance) chartInstance.destroy();
       
@@ -1840,6 +2243,31 @@ async function generateReport() {
       
       data = members || [];
       fileName = `report_member_${admin}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    } else if (reportType === 'source') {
+      // Report berdasarkan sumber data
+      let query = supabase.from('members').select('*');
+      if (admin !== '__all') query = query.eq('admin_username', admin);
+      
+      const { data: members, error } = await query;
+      if (error) throw error;
+      
+      // Group by data source
+      const sourceGroups = {};
+      members.forEach(member => {
+        const source = member.data_source || 'unknown';
+        if (!sourceGroups[source]) sourceGroups[source] = [];
+        sourceGroups[source].push(member);
+      });
+      
+      const wb = XLSX.utils.book_new();
+      Object.keys(sourceGroups).forEach(source => {
+        const ws = XLSX.utils.json_to_sheet(sourceGroups[source]);
+        XLSX.utils.book_append_sheet(wb, ws, `Data_${source}`);
+      });
+      
+      fileName = `report_source_${admin}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      return;
     } else {
       let query = supabase.from('deposits').select('*');
       if (admin !== '__all') query = query.eq('admin_username', admin);
@@ -1902,18 +2330,15 @@ async function refreshAllData() {
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
-  // Set default dates
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   
   document.getElementById('fromDate').value = firstDay.toISOString().slice(0,10);
   document.getElementById('toDate').value = today.toISOString().slice(0,10);
   
-  // Set default dates untuk batch filter juga
   document.getElementById('batchFromDate').value = firstDay.toISOString().slice(0,10);
   document.getElementById('batchToDate').value = today.toISOString().slice(0,10);
 
-  // Check if user was logged in
   const savedUser = localStorage.getItem('currentMasterUser');
   if (savedUser) {
     try {
