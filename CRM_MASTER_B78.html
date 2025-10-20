@@ -12,6 +12,7 @@
   :root{
     --bg:#f8fafc; --card:#fff; --accent:#3b82f6; --muted:#64748b;
     --success:#10b981; --danger:#ef4444; --warning:#f59e0b;
+    --info:#06b6d4; --secondary:#64748b; --dark:#1e293b;
   }
   *{box-sizing:border-box;font-family:'Inter', system-ui, sans-serif}
   body{margin:0;background:var(--bg);color:#1e293b; line-height:1.6}
@@ -20,11 +21,60 @@
   .card{background:var(--card);border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.1);border:1px solid #e2e8f0;margin-bottom:20px}
   .login-area{max-width:400px;margin:80px auto}
   input,select{width:100%;padding:12px;border-radius:8px;border:1px solid #d1d5db;margin-top:6px;font-size:14px}
-  button{padding:10px 20px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:500;transition:all 0.2s}
-  button:hover{opacity:0.9;transform:translateY(-1px)}
-  button.danger{background:var(--danger)}
-  button.success{background:var(--success)}
-  button.warning{background:var(--warning)}
+  
+  /* ==================== TOMBOL DENGAN WARNA YANG LEBIH KONTRAST ==================== */
+  button{
+    padding:10px 20px;
+    border-radius:8px;
+    border:0;
+    background:var(--accent);
+    color:#fff;
+    cursor:pointer;
+    font-size:14px;
+    font-weight:600; /* DIUBAH: Menjadi lebih tebal */
+    transition:all 0.2s;
+    box-shadow:0 2px 4px rgba(0,0,0,0.1);
+  }
+  button:hover{
+    opacity:0.9;
+    transform:translateY(-2px);
+    box-shadow:0 4px 8px rgba(0,0,0,0.15);
+  }
+  button:active{
+    transform:translateY(0);
+  }
+  button.danger{
+    background:var(--danger);
+    color:white;
+  }
+  button.success{
+    background:var(--success);
+    color:white;
+  }
+  button.warning{
+    background:var(--warning);
+    color:white;
+  }
+  button.info{
+    background:var(--info);
+    color:white;
+  }
+  button.secondary{
+    background:var(--secondary);
+    color:white;
+  }
+  button.dark{
+    background:var(--dark);
+    color:white;
+  }
+  
+  /* Tombol kecil */
+  .btn-sm {
+    padding:6px 12px;
+    font-size:12px;
+    font-weight:600;
+  }
+  
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}
   table{width:100%;border-collapse:collapse;font-size:14px;background:white}
   th,td{padding:12px;border-bottom:1px solid #e2e8f0;text-align:left}
@@ -169,6 +219,7 @@
   .user-actions button {
     padding: 6px 12px;
     font-size: 12px;
+    font-weight: 600;
   }
 
   /* ==================== NAVIGASI TANGGAL BARU ==================== */
@@ -192,7 +243,7 @@
     color: #374151;
     border-radius: 8px;
     cursor: pointer;
-    font-weight: 500;
+    font-weight: 600; /* DIUBAH: Menjadi lebih tebal */
     transition: all 0.2s;
     display: flex;
     align-items: center;
@@ -202,11 +253,13 @@
   .nav-btn:hover {
     background: #f8fafc;
     border-color: #9ca3af;
+    transform: translateY(-1px);
   }
 
   .nav-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    transform: none;
   }
 
   .current-date-display {
@@ -230,14 +283,17 @@
   .quick-nav-btn {
     padding: 6px 12px;
     font-size: 12px;
+    font-weight: 600; /* DIUBAH: Menjadi lebih tebal */
     background: #f1f5f9;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     cursor: pointer;
+    color: #374151;
   }
 
   .quick-nav-btn:hover {
     background: #e2e8f0;
+    transform: translateY(-1px);
   }
 
   .comparison-stats {
@@ -436,11 +492,11 @@
     </div>
   </div>
   <div id="leaderSignedOut" style="display:flex;align-items:center;gap:12px">
-    <button type="button" onclick="showLogin()">Login</button>
+    <button type="button" onclick="showLogin()" class="info">Login</button>
   </div>
   <div id="leaderSignedIn" style="display:none;align-items:center;gap:12px">
     <div class="muted" id="leaderName">Administrator</div>
-    <button type="button" onclick="logout()">Logout</button>
+    <button type="button" onclick="logout()" class="secondary">Logout</button>
   </div>
 </header>
 
@@ -460,7 +516,7 @@
       <input id="loginPass" type="password" placeholder="Masukkan password" value="admin123"/>
     </div>
     
-    <button type="button" onclick="doLogin()" style="width:100%;padding:12px;margin-top:8px">Login ke System</button>
+    <button type="button" onclick="doLogin()" style="width:100%;padding:12px;margin-top:8px" class="success">Login ke System</button>
     <div id="loginMsg" class="login-msg" style="display:none"></div>
   </div>
 
@@ -476,7 +532,7 @@
         <div style="display:flex;gap:12px;align-items:center">
           <input type="date" id="fromDate" style="width:140px;padding:8px"/>
           <input type="date" id="toDate" style="width:140px;padding:8px"/>
-          <button type="button" onclick="refreshAllData()">Terapkan Filter</button>
+          <button type="button" onclick="refreshAllData()" class="info">Terapkan Filter</button>
         </div>
       </div>
 
@@ -603,8 +659,8 @@
           </div>
           
           <div class="action-buttons">
-            <button type="button" onclick="addAdmin()">Tambah User</button>
-            <button type="button" onclick="exportAllData()" style="background:#64748b">Export Data</button>
+            <button type="button" onclick="addAdmin()" class="success">Tambah User</button>
+            <button type="button" onclick="exportAllData()" class="secondary">Export Data</button>
           </div>
         </div>
 
@@ -646,9 +702,9 @@
           </div>
           
           <div class="action-buttons">
-            <button type="button" onclick="importToAdmin()">Import Data</button>
-            <button type="button" onclick="downloadTemplate()" style="background:#64748b">Download Template</button>
-            <button type="button" onclick="generateNewBatch()" class="success">Batch Baru</button>
+            <button type="button" onclick="importToAdmin()" class="success">Import Data</button>
+            <button type="button" onclick="downloadTemplate()" class="secondary">Download Template</button>
+            <button type="button" onclick="generateNewBatch()" class="info">Batch Baru</button>
             <button type="button" onclick="showBatchHistory()" class="warning">Cek Batch</button>
           </div>
 
@@ -660,16 +716,16 @@
             <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
               <input type="date" id="batchFromDate" style="width:140px;padding:6px;font-size:12px">
               <input type="date" id="batchToDate" style="width:140px;padding:6px;font-size:12px">
-              <button type="button" onclick="filterBatchByDate()" style="padding:6px 12px;font-size:12px">Filter</button>
-              <button type="button" onclick="refreshBatchHistory()" style="padding:6px 12px;font-size:12px">Reset</button>
+              <button type="button" onclick="filterBatchByDate()" class="btn-sm info">Filter</button>
+              <button type="button" onclick="refreshBatchHistory()" class="btn-sm secondary">Reset</button>
             </div>
             
             <div class="batch-history" id="batchHistoryList">
               <!-- Daftar batch akan muncul di sini -->
             </div>
             <div class="action-buttons" style="margin-top:12px">
-              <button type="button" onclick="refreshBatchHistory()" style="padding:6px 12px;font-size:12px">Refresh</button>
-              <button type="button" onclick="hideBatchHistory()" style="padding:6px 12px;font-size:12px;background:#64748b">Tutup</button>
+              <button type="button" onclick="refreshBatchHistory()" class="btn-sm info">Refresh</button>
+              <button type="button" onclick="hideBatchHistory()" class="btn-sm secondary">Tutup</button>
             </div>
           </div>
 
@@ -709,8 +765,8 @@
           </div>
           
           <div class="action-buttons">
-            <button type="button" onclick="generateReport()">Download Report</button>
-            <button type="button" onclick="refreshAllData()" class="success">Refresh Data</button>
+            <button type="button" onclick="generateReport()" class="success">Download Report</button>
+            <button type="button" onclick="refreshAllData()" class="info">Refresh Data</button>
           </div>
         </div>
 
@@ -742,7 +798,7 @@
           <div class="action-buttons">
             <button type="button" onclick="checkStorageUsage()" class="warning">Cek Storage</button>
             <button type="button" onclick="cleanupOldData()" class="danger">Bersihkan Data Lama</button>
-            <button type="button" onclick="exportAllBackups()" style="background:#64748b">Export Backup</button>
+            <button type="button" onclick="exportAllBackups()" class="secondary">Export Backup</button>
           </div>
 
           <div class="form-group" style="margin-top:16px">
@@ -1578,8 +1634,8 @@ async function refreshBatchHistory() {
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="batch-count">${batch.count} member</span>
-          <button onclick="viewBatchDetails('${batch.batch_id}')" style="padding:4px 8px;font-size:10px">Detail</button>
-          <button onclick="useThisBatch('${batch.batch_id}')" style="padding:4px 8px;font-size:10px;background:#10b981">Pakai</button>
+          <button onclick="viewBatchDetails('${batch.batch_id}')" style="padding:4px 8px;font-size:10px" class="btn-sm info">Detail</button>
+          <button onclick="useThisBatch('${batch.batch_id}')" style="padding:4px 8px;font-size:10px" class="btn-sm success">Pakai</button>
         </div>
       `;
       
@@ -1655,8 +1711,8 @@ async function filterBatchByDate() {
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="batch-count">${batch.count} member</span>
-          <button onclick="viewBatchDetails('${batch.batch_id}')" style="padding:4px 8px;font-size:10px">Detail</button>
-          <button onclick="useThisBatch('${batch.batch_id}')" style="padding:4px 8px;font-size:10px;background:#10b981">Pakai</button>
+          <button onclick="viewBatchDetails('${batch.batch_id}')" style="padding:4px 8px;font-size:10px" class="btn-sm info">Detail</button>
+          <button onclick="useThisBatch('${batch.batch_id}')" style="padding:4px 8px;font-size:10px" class="btn-sm success">Pakai</button>
         </div>
       `;
       
@@ -1813,9 +1869,9 @@ async function refreshAdminTable() {
             <span class="user-role leader">${admin.role}</span>
           </div>
           <div class="user-actions">
-            <button onclick="resetPassword('${admin.username}')" style="padding:6px 12px;font-size:12px">Reset PW</button>
+            <button onclick="resetPassword('${admin.username}')" class="btn-sm warning">Reset PW</button>
             ${admin.username !== currentUser.username ? 
-              `<button class="danger" onclick="deleteAdmin('${admin.username}')" style="padding:6px 12px;font-size:12px">Hapus</button>` : 
+              `<button class="danger btn-sm" onclick="deleteAdmin('${admin.username}')">Hapus</button>` : 
               ''}
           </div>
         `;
@@ -1869,8 +1925,8 @@ async function refreshAdminTable() {
             </div>
           </div>
           <div class="user-actions">
-            <button onclick="resetPassword('${admin.username}')" style="padding:6px 12px;font-size:12px">Reset PW</button>
-            <button class="danger" onclick="deleteAdmin('${admin.username}')" style="padding:6px 12px;font-size:12px">Hapus</button>
+            <button onclick="resetPassword('${admin.username}')" class="btn-sm warning">Reset PW</button>
+            <button class="danger btn-sm" onclick="deleteAdmin('${admin.username}')">Hapus</button>
           </div>
         `;
         adminGroup.appendChild(userRow);
