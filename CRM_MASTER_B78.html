@@ -252,6 +252,7 @@
     padding: 20px;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   }
 
   .comparison-title {
@@ -270,11 +271,11 @@
   }
 
   .comparison-value.admin {
-    color: #10b981;
+    color: #10b981; /* Warna hijau untuk pendapatan admin */
   }
 
   .comparison-value.master {
-    color: #3b82f6;
+    color: #1e293b;
   }
 
   .comparison-diff {
@@ -365,6 +366,63 @@
     font-size: 11px;
     color: #64748b;
     text-transform: uppercase;
+  }
+
+  /* ==================== STYLING BARU UNTUK TOTAL TRANSAKSI ==================== */
+  .transaction-count {
+    font-size: 32px;
+    font-weight: 800;
+    color: #10b981; /* DIUBAH: Warna hijau sama seperti pendapatan admin */
+    margin: 12px 0;
+    text-align: center;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+
+  .transaction-label {
+    font-size: 14px;
+    color: #64748b;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .transaction-subtitle {
+    font-size: 12px;
+    color: #94a3b8;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  /* Styling untuk Chart */
+  .chart-container {
+    position: relative;
+    height: 400px;
+    margin-top: 20px;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+  }
+
+  /* Styling untuk card transaksi yang lebih menarik */
+  .transaction-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .transaction-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #10b981, #34d399); /* DIUBAH: Warna hijau sama seperti pendapatan admin */
   }
 </style>
 </head>
@@ -494,7 +552,7 @@
         </div>
       </div>
 
-      <!-- PERBANDINGAN PENDAPATAN HARIAN -->
+      <!-- PERBANDINGAN HARIAN - BAGIAN YANG DIREVISI -->
       <div class="comparison-stats" id="dailyComparison" style="display:none">
         <div class="comparison-card">
           <div class="comparison-title">Pendapatan Admin (Harian)</div>
@@ -502,15 +560,16 @@
           <div class="muted" style="text-align:center">Total dari semua admin</div>
           <div class="comparison-diff" id="adminDailyDiff"></div>
         </div>
-        <div class="comparison-card">
-          <div class="comparison-title">Data Anda (Harian)</div>
-          <div class="comparison-value master" id="masterDailyRevenue">Rp 0</div>
-          <div class="muted" style="text-align:center">Berdasarkan kontribusi data Anda</div>
-          <div class="comparison-diff" id="masterDailyDiff"></div>
+        <div class="comparison-card transaction-card"> <!-- DIUBAH: Menambahkan class transaction-card -->
+          <!-- BAGIAN INI YANG DIREVISI: Data Anda (Harian) -> Total Transaksi Harian -->
+          <div class="comparison-title">Total Transaksi Harian</div>
+          <div class="transaction-count" id="dailyTransactionCount">0</div> <!-- DIUBAH: Warna hijau sama seperti pendapatan admin -->
+          <div class="transaction-subtitle">Seluruh Admin Hari Ini</div>
+          <div class="comparison-diff" id="transactionDailyDiff"></div>
         </div>
       </div>
 
-      <!-- BREAKDOWN HARIAN PER ADMIN -->
+      <!-- BREAKDOWN HARIAN PER ADMIN - DIREVISI -->
       <div class="daily-breakdown" id="dailyBreakdown" style="display:none">
         <div class="subsection-title">Breakdown Harian per Admin</div>
         <div class="breakdown-table-container">
@@ -521,8 +580,6 @@
                 <th>Jumlah Member</th>
                 <th>Jumlah Transaksi</th>
                 <th>Total Pendapatan</th>
-                <th>Rata-rata per Member</th>
-                <th>Data dari Anda</th>
               </tr>
             </thead>
             <tbody id="breakdownTableBody">
@@ -534,8 +591,10 @@
 
       <!-- Chart -->
       <div style="margin-top:24px">
-        <div class="subsection-title">Grafik Pendapatan per Admin</div>
-        <canvas id="masterChart" height="120"></canvas>
+        <div class="subsection-title" id="chartTitle">Grafik Pendapatan per Admin</div>
+        <div class="chart-container">
+          <canvas id="masterChart" height="400"></canvas>
+        </div>
       </div>
     </div>
 
@@ -576,7 +635,7 @@
           </div>
         </div>
 
-        <!-- Daftar User & Performance (REVISED) -->
+        <!-- Daftar User & Performance -->
         <div class="card">
           <div class="section-title">Daftar User & Performance</div>
           <div id="userListContainer">
@@ -749,7 +808,6 @@ let currentBatchId = null;
 
 // ==================== VARIABEL NAVIGASI TANGGAL ====================
 let currentViewDate = new Date(); // Tanggal yang sedang dilihat
-let dailyComparisonData = {}; // Data perbandingan harian
 
 // ==================== FUNGSI NAVIGASI TANGGAL ====================
 function navigateDate(direction) {
@@ -773,6 +831,7 @@ function navigateDate(direction) {
   currentViewDate = newDate;
   updateDateDisplay();
   loadDailyData();
+  refreshCharts();
 }
 
 function goToDate(type) {
@@ -794,6 +853,7 @@ function goToDate(type) {
   
   updateDateDisplay();
   loadDailyData();
+  refreshCharts();
 }
 
 function updateDateDisplay() {
@@ -814,7 +874,7 @@ function updateDateDisplay() {
   document.getElementById('nextDateBtn').disabled = isToday;
 }
 
-// ==================== LOAD DATA HARIAN DENGAN PERBAIKAN LOGIKA ====================
+// ==================== LOAD DATA HARIAN DENGAN REVISI UNTUK TOTAL TRANSAKSI ====================
 async function loadDailyData() {
   try {
     showImportStatus('Memuat data harian...', true);
@@ -869,15 +929,15 @@ async function loadDailyData() {
       document.getElementById('dataSourceInfo').style.display = 'none';
     }
     
-    // Process revenue data dengan logika yang diperbaiki
+    // ==================== PERUBAHAN UTAMA: HITUNG JUMLAH TRANSAKSI ====================
+    const todayTransactionCount = dailyDeposits ? dailyDeposits.length : 0;
+    const prevTransactionCount = prevDeposits ? prevDeposits.length : 0;
+    
+    // Hitung revenue untuk bagian pertama (tetap tampilkan revenue admin)
     const adminRevenue = dailyDeposits ? dailyDeposits.reduce((sum, d) => sum + (d.amount || 0), 0) : 0;
     const prevAdminRevenue = prevDeposits ? prevDeposits.reduce((sum, d) => sum + (d.amount || 0), 0) : 0;
     
-    // PERBAIKAN: Hitung revenue master berdasarkan kontribusi data
-    const masterRevenue = yourPercentage > 0 ? (adminRevenue * yourPercentage / 100) : 0;
-    const prevMasterRevenue = prevAdminRevenue > 0 ? (prevAdminRevenue * yourPercentage / 100) : 0;
-    
-    // Hitung success rate (data yang menghasilkan transaksi)
+    // Hitung success rate
     const successfulData = dailyMembers ? dailyMembers.filter(m => {
       const hasDeposit = dailyDeposits && dailyDeposits.some(d => d.member_id === m.id);
       return hasDeposit;
@@ -886,20 +946,25 @@ async function loadDailyData() {
     const successRate = totalDataCount > 0 ? Math.round((successfulData / totalDataCount) * 100) : 0;
     document.getElementById('successRate').textContent = successRate + '%';
     
-    // Update UI
+    // ==================== UPDATE UI DENGAN DATA TRANSAKSI ====================
+    // Bagian pertama: Tetap tampilkan pendapatan admin
     document.getElementById('adminDailyRevenue').textContent = formatCurrency(adminRevenue);
-    document.getElementById('masterDailyRevenue').textContent = formatCurrency(masterRevenue);
+    
+    // Bagian kedua: Tampilkan jumlah transaksi (mengganti "Data Anda")
+    document.getElementById('dailyTransactionCount').textContent = todayTransactionCount;
     
     // Hitung perbedaan
     const adminDiff = adminRevenue - prevAdminRevenue;
-    const masterDiff = masterRevenue - prevMasterRevenue;
+    const transactionDiff = todayTransactionCount - prevTransactionCount;
     
+    // Tampilkan perbedaan pendapatan admin
     document.getElementById('adminDailyDiff').innerHTML = adminDiff !== 0 ? 
       `<span class="${adminDiff > 0 ? 'diff-positive' : 'diff-negative'}">${adminDiff > 0 ? '↑' : '↓'} ${formatCurrency(Math.abs(adminDiff))} dari kemarin</span>` :
       'Sama dengan kemarin';
     
-    document.getElementById('masterDailyDiff').innerHTML = masterDiff !== 0 ? 
-      `<span class="${masterDiff > 0 ? 'diff-positive' : 'diff-negative'}">${masterDiff > 0 ? '↑' : '↓'} ${formatCurrency(Math.abs(masterDiff))} dari kemarin</span>` :
+    // Tampilkan perbedaan jumlah transaksi
+    document.getElementById('transactionDailyDiff').innerHTML = transactionDiff !== 0 ? 
+      `<span class="${transactionDiff > 0 ? 'diff-positive' : 'diff-negative'}">${transactionDiff > 0 ? '↑' : '↓'} ${Math.abs(transactionDiff)} transaksi dari kemarin</span>` :
       'Sama dengan kemarin';
     
     // Tampilkan section perbandingan
@@ -907,6 +972,9 @@ async function loadDailyData() {
     
     // Load breakdown per admin
     await loadDailyBreakdown(dateStr, dailyMembers, dailyDeposits);
+    
+    // PERBARUI GRAFIK
+    await refreshCharts();
     
     showImportStatus(`Data harian ${dateStr} berhasil dimuat`, true);
     
@@ -916,7 +984,7 @@ async function loadDailyData() {
   }
 }
 
-// ==================== LOAD BREAKDOWN HARIAN PER ADMIN DENGAN DATA SOURCE ====================
+// ==================== LOAD BREAKDOWN HARIAN PER ADMIN - DIREVISI ====================
 async function loadDailyBreakdown(dateStr, dailyMembers, dailyDeposits) {
   try {
     // Get all admins
@@ -931,7 +999,7 @@ async function loadDailyBreakdown(dateStr, dailyMembers, dailyDeposits) {
     breakdownBody.innerHTML = '';
     
     if (!admins || admins.length === 0) {
-      breakdownBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#666">Tidak ada data admin</td></tr>';
+      breakdownBody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:#666">Tidak ada data admin</td></tr>';
       document.getElementById('dailyBreakdown').style.display = 'none';
       return;
     }
@@ -946,13 +1014,9 @@ async function loadDailyBreakdown(dateStr, dailyMembers, dailyDeposits) {
       // Filter deposits untuk admin ini
       const adminDeposits = dailyDeposits ? dailyDeposits.filter(d => d.admin_username === admin.username) : [];
       
-      // Hitung data dari master untuk admin ini
-      const yourDataToAdmin = adminMembers.filter(m => m.data_source === 'master').length;
-      
       const memberCount = adminMembers.length;
       const transactionCount = adminDeposits.length;
       const revenue = adminDeposits.reduce((sum, d) => sum + (d.amount || 0), 0);
-      const avgPerMember = memberCount > 0 ? revenue / memberCount : 0;
       
       if (memberCount > 0 || transactionCount > 0) {
         hasData = true;
@@ -962,8 +1026,6 @@ async function loadDailyBreakdown(dateStr, dailyMembers, dailyDeposits) {
           <td>${memberCount}</td>
           <td>${transactionCount}</td>
           <td>${formatCurrency(revenue)}</td>
-          <td>${formatCurrency(avgPerMember)}</td>
-          <td>${yourDataToAdmin} data</td>
         `;
         breakdownBody.appendChild(row);
       }
@@ -973,13 +1035,243 @@ async function loadDailyBreakdown(dateStr, dailyMembers, dailyDeposits) {
       document.getElementById('dailyBreakdown').style.display = 'block';
     } else {
       document.getElementById('dailyBreakdown').style.display = 'none';
-      breakdownBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#666">Tidak ada data untuk tanggal ini</td></tr>';
+      breakdownBody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:#666">Tidak ada data untuk tanggal ini</td></tr>';
     }
     
   } catch (error) {
     console.error('Error loading daily breakdown:', error);
     document.getElementById('dailyBreakdown').style.display = 'none';
   }
+}
+
+// ==================== CHARTS YANG RESPONSIF TERHADAP TANGGAL ====================
+let chartInstance = null;
+
+async function refreshCharts() {
+  try {
+    // Gunakan tanggal dari navigasi tanggal, bukan dari filter date range
+    const dateStr = currentViewDate.toISOString().split('T')[0];
+    
+    const { data: admins, error: adminError } = await supabase
+      .from('admins')
+      .select('username')
+      .eq('role', 'admin');
+
+    if (adminError) throw adminError;
+
+    const adminLabels = admins ? admins.map(a => a.username) : [];
+    const totals = [];
+
+    if (adminLabels.length === 0) {
+      const ctx = document.getElementById('masterChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+      
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Belum Ada Data'],
+          datasets: [{
+            label: 'Pendapatan',
+            data: [0],
+            backgroundColor: 'rgba(59, 130, 246, 0.7)'
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { 
+            legend: { display: false },
+            title: {
+              display: true,
+              text: `Tambah admin untuk melihat data - ${dateStr}`
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+      return;
+    }
+
+    // Ambil data deposit untuk tanggal yang dipilih
+    for (const admin of admins) {
+      const { data: deposits, error: depositError } = await supabase
+        .from('deposits')
+        .select('amount')
+        .eq('admin_username', admin.username)
+        .eq('date', dateStr); // Filter berdasarkan tanggal yang dipilih
+
+      if (depositError) throw depositError;
+
+      const total = deposits ? deposits.reduce((sum, d) => sum + (d.amount || 0), 0) : 0;
+      totals.push(total);
+    }
+
+    const ctx = document.getElementById('masterChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    // Array warna cerah untuk grafik
+    const brightColors = [
+      'rgba(59, 130, 246, 0.8)',   // Biru cerah
+      'rgba(16, 185, 129, 0.8)',   // Hijau cerah (sama seperti pendapatan admin)
+      'rgba(139, 92, 246, 0.8)',   // Ungu cerah
+      'rgba(236, 72, 153, 0.8)',   // Pink cerah
+      'rgba(14, 165, 233, 0.8)',   // Biru muda cerah
+      'rgba(20, 184, 166, 0.8)',   // Cyan cerah
+      'rgba(245, 158, 11, 0.8)',   // Oranye cerah
+      'rgba(245, 101, 101, 0.8)'   // Merah cerah
+    ];
+
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: adminLabels,
+        datasets: [{
+          label: `Pendapatan - ${dateStr}`,
+          data: totals,
+          backgroundColor: adminLabels.map((_, index) => 
+            brightColors[index % brightColors.length]
+          ),
+          borderColor: adminLabels.map((_, index) => 
+            brightColors[index % brightColors.length].replace('0.8', '1')
+          ),
+          borderWidth: 2,
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { 
+          legend: { 
+            display: true,
+            position: 'top',
+          },
+          title: {
+            display: true,
+            text: `Grafik Pendapatan per Admin - ${formatDisplayDate(currentViewDate)}`,
+            font: {
+              size: 16,
+              weight: 'bold'
+            },
+            padding: {
+              top: 10,
+              bottom: 30
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            titleColor: '#1e293b',
+            bodyColor: '#475569',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            cornerRadius: 8,
+            displayColors: true,
+            callbacks: {
+              label: function(context) {
+                return `Pendapatan: ${formatCurrency(context.raw)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return 'Rp ' + value.toLocaleString();
+              },
+              font: {
+                size: 11
+              }
+            },
+            grid: {
+              color: 'rgba(226, 232, 240, 0.5)'
+            },
+            title: {
+              display: true,
+              text: 'Jumlah Pendapatan',
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              font: {
+                size: 11
+              }
+            },
+            title: {
+              display: true,
+              text: 'Admin',
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
+            }
+          }
+        },
+        animation: {
+          duration: 1000,
+          easing: 'easeInOutQuart'
+        },
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        }
+      }
+    });
+
+    // Update judul grafik
+    document.getElementById('chartTitle').textContent = 
+      `Grafik Pendapatan per Admin - ${formatDisplayDate(currentViewDate)}`;
+
+  } catch (error) {
+    console.error('Error loading chart:', error);
+    
+    const ctx = document.getElementById('masterChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+    
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Error'],
+        datasets: [{
+          label: 'Error',
+          data: [0],
+          backgroundColor: 'rgba(239, 68, 68, 0.7)'
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { 
+          legend: { display: false },
+          title: {
+            display: true,
+            text: 'Error memuat data grafik'
+          }
+        }
+      }
+    });
+  }
+}
+
+// Fungsi tambahan untuk format tanggal tampilan
+function formatDisplayDate(date) {
+  return date.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 }
 
 // ==================== FIXED TIMEZONE FUNCTIONS ====================
@@ -1048,7 +1340,7 @@ function parseExcelDate(excelDate) {
         if (!isNaN(parsedDate.getTime())) {
           const finalYear = parsedDate.getFullYear();
           const finalMonth = String(parsedDate.getMonth() + 1).padStart(2, '0');
-          const finalDay = String(parsedDate.getDate()).padStart(2, '0');
+          finalDay = String(parsedDate.getDate()).padStart(2, '0');
           return `${finalYear}-${finalMonth}-${finalDay}`;
         }
       }
@@ -1976,7 +2268,7 @@ async function importToAdmin() {
             has_response: false,
             created_at: new Date().toISOString(),
             batch_id: currentBatchId,
-            data_source: dataSource // ✅ Simpan sumber data
+            data_source: dataSource
           });
 
           successCount++;
@@ -2117,112 +2409,6 @@ function downloadTemplate() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Template Member');
   XLSX.writeFile(wb, 'template_import_member.xlsx');
-}
-
-// ==================== CHARTS ====================
-let chartInstance = null;
-
-async function refreshCharts() {
-  const from = document.getElementById('fromDate').value;
-  const to = document.getElementById('toDate').value;
-
-  try {
-    const { data: admins, error: adminError } = await supabase
-      .from('admins')
-      .select('username')
-      .eq('role', 'admin');
-
-    if (adminError) throw adminError;
-
-    const adminLabels = admins ? admins.map(a => a.username) : [];
-    const totals = [];
-
-    if (adminLabels.length === 0) {
-      const ctx = document.getElementById('masterChart').getContext('2d');
-      if (chartInstance) chartInstance.destroy();
-      
-      chartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Belum Ada Data'],
-          datasets: [{
-            label: 'Pendapatan',
-            data: [0],
-            backgroundColor: 'rgba(203, 213, 225, 0.7)'
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { 
-            legend: { display: false },
-            title: {
-              display: true,
-              text: 'Tambah admin untuk melihat data'
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true
-            }
-          }
-        }
-      });
-      return;
-    }
-
-    for (const admin of admins) {
-      let query = supabase
-        .from('deposits')
-        .select('amount')
-        .eq('admin_username', admin.username);
-
-      if (from) query = query.gte('date', from);
-      if (to) query = query.lte('date', to);
-
-      const { data: deposits, error: depositError } = await query;
-
-      if (depositError) throw depositError;
-
-      const total = deposits ? deposits.reduce((sum, d) => sum + (d.amount || 0), 0) : 0;
-      totals.push(total);
-    }
-
-    const ctx = document.getElementById('masterChart').getContext('2d');
-    if (chartInstance) chartInstance.destroy();
-
-    chartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: adminLabels,
-        datasets: [{
-          label: 'Pendapatan',
-          data: totals,
-          backgroundColor: 'rgba(59, 130, 246, 0.7)',
-          borderColor: 'rgba(59, 130, 246, 1)',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { 
-          legend: { display: false }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return 'Rp ' + value.toLocaleString();
-              }
-            }
-          }
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('Error:', error);
-  }
 }
 
 // ==================== REPORTS & EXPORT ====================
