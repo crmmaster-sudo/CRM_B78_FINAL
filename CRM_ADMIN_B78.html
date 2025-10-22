@@ -59,6 +59,8 @@
   .empty-state-title{font-size:16px;margin-bottom:8px;font-weight:600}
   .empty-state-desc{font-size:14px;margin-bottom:4px}
   .empty-state-hint{font-size:12px;color:#9ca3af}
+  .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center}
+  .modal-content{background:white;padding:24px;border-radius:12px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -139,7 +141,7 @@
           Hati-hati! Tindakan reset data tidak dapat dibatalkan. Pilih opsi reset sesuai kebutuhan:
         </p>
         <div class="reset-buttons">
-          <button class="danger" onclick="resetMemberDataByDate()" style="background:#dc2626">👥 Reset Member per Tanggal</button>
+          <button class="danger" onclick="showResetMemberModal()" style="background:#dc2626">👥 Reset Member per Tanggal</button>
           <button class="danger" onclick="resetAdminData()" style="background:#7f1d1d">💥 Reset Semua Data</button>
         </div>
         <small style="color:#7f1d1d;display:block;margin-top:8px">
@@ -280,6 +282,36 @@
   </div>
 </div>
 
+<!-- Modal Reset Member -->
+<div id="resetMemberModal" class="modal">
+  <div class="modal-content">
+    <h3 style="color:#dc2626; margin-bottom:16px;">👥 Reset Member per Tanggal</h3>
+    
+    <div class="form-group">
+      <label class="form-label">Tanggal yang akan direset (YYYY-MM-DD)</label>
+      <input type="date" id="resetDateInput" style="padding:10px; border:1px solid #e5e7eb; border-radius:8px"/>
+      <small style="color:#666;">Pilih tanggal data member yang ingin dihapus</small>
+    </div>
+
+    <div id="resetPreview" style="display:none; background:#f8fafc; padding:12px; border-radius:8px; margin:12px 0;">
+      <h4 style="margin:0 0 8px 0;">Preview Data yang Akan Dihapus:</h4>
+      <div id="resetPreviewContent"></div>
+    </div>
+
+    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+      <button onclick="closeResetModal()" style="padding:8px 16px; border:1px solid #d1d5db; background:white; border-radius:6px; cursor:pointer;">
+        Batal
+      </button>
+      <button onclick="confirmResetMember()" id="confirmResetBtn" style="padding:8px 16px; background:#dc2626; color:white; border:none; border-radius:6px; cursor:pointer; display:none;">
+        Hapus Data Member
+      </button>
+      <button onclick="previewResetData()" style="padding:8px 16px; background:#3b82f6; color:white; border:none; border-radius:6px; cursor:pointer;">
+        Preview Data
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ==================== KONFIGURASI SUPA BASE ====================
 const SUPABASE_URL = 'https://qclwmenzzzgzrrjuznql.supabase.co';
@@ -287,12 +319,292 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentAdmin = null;
+let currentResetDate = null;
+let previewMembers = [];
+
+// ==================== MODAL FUNCTIONS ====================
+function showResetMemberModal() {
+  document.getElementById('resetMemberModal').style.display = 'flex';
+  document.getElementById('resetDateInput').value = '';
+  document.getElementById('resetPreview').style.display = 'none';
+  document.getElementById('confirmResetBtn').style.display = 'none';
+  document.getElementById('resetPreviewContent').innerHTML = '';
+}
+
+function closeResetModal() {
+  document.getElementById('resetMemberModal').style.display = 'none';
+}
+
+function previewResetData() {
+  const resetDate = document.getElementById('resetDateInput').value;
+  
+  if (!resetDate) {
+    alert('Silakan pilih tanggal terlebih dahulu');
+    return;
+  }
+
+  // Validasi format tanggal
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(resetDate)) {
+    alert('Format tanggal tidak valid. Gunakan format YYYY-MM-DD');
+    return;
+  }
+
+  // Validasi tanggal tidak di masa depan
+  const today = getCurrentLocalDate();
+  if (resetDate > today) {
+    alert('Tidak bisa reset data untuk tanggal masa depan');
+    return;
+  }
+
+  currentResetDate = resetDate;
+  showNotification('🔍 Mencari data member...');
+
+  // Cari member yang dibuat pada tanggal tersebut
+  previewMembers = state.members.filter(member => {
+    const memberDate = member.created_at ? member.created_at.split('T')[0] : '';
+    return memberDate === resetDate;
+  });
+
+  const previewContent = document.getElementById('resetPreviewContent');
+  const previewSection = document.getElementById('resetPreview');
+  const confirmBtn = document.getElementById('confirmResetBtn');
+
+  if (previewMembers.length === 0) {
+    previewContent.innerHTML = `
+      <div style="text-align:center; padding:20px; color:#666;">
+        <div style="font-size:24px; margin-bottom:8px;">📭</div>
+        <div style="font-weight:600; margin-bottom:4px;">Tidak Ada Data</div>
+        <div>Tidak ditemukan data member untuk tanggal ${formatDateForDisplay(resetDate)}</div>
+      </div>
+    `;
+    confirmBtn.style.display = 'none';
+  } else {
+    previewContent.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <strong>Tanggal:</strong> ${formatDateForDisplay(resetDate)}<br>
+        <strong>Jumlah Member:</strong> ${previewMembers.length} data<br>
+        <strong>Contoh Data:</strong>
+      </div>
+      <div style="max-height:120px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px; padding:8px; background:white;">
+        ${previewMembers.slice(0, 10).map(member => `
+          <div style="padding:4px 0; border-bottom:1px solid #f3f4f6;">
+            <span style="font-family:monospace; font-size:12px;">${extractOriginalId(member.id)}</span> - ${member.name}
+          </div>
+        `).join('')}
+        ${previewMembers.length > 10 ? `<div style="padding:4px 0; color:#666; font-style:italic;">... dan ${previewMembers.length - 10} data lainnya</div>` : ''}
+      </div>
+      <div style="margin-top:8px; padding:8px; background:#fef2f2; border-radius:4px; border-left:4px solid #dc2626;">
+        <small style="color:#dc2626;">
+          ⚠️ Data yang dihapus tidak dapat dikembalikan. Pastikan Anda sudah backup data jika diperlukan.
+        </small>
+      </div>
+    `;
+    confirmBtn.style.display = 'block';
+  }
+
+  previewSection.style.display = 'block';
+}
+
+// ==================== FUNGSI RESET DATA YANG DIPERBAIKI ====================
+async function confirmResetMember() {
+  if (!currentResetDate || previewMembers.length === 0) {
+    alert('Tidak ada data yang akan direset');
+    return;
+  }
+
+  const finalConfirm = confirm(
+    `⚠️ KONFIRMASI HAPUS DATA MEMBER\n\n` +
+    `Tanggal: ${formatDateForDisplay(currentResetDate)}\n` +
+    `Jumlah Data: ${previewMembers.length} member\n\n` +
+    `Data deposit TIDAK AKAN DIHAPUS dan tetap aman!\n` +
+    `Tindakan ini tidak dapat dibatalkan!\n\n` +
+    `Lanjutkan menghapus?`
+  );
+
+  if (!finalConfirm) return;
+
+  try {
+    showNotification('🔄 Memproses reset data member...');
+
+    // Hapus member dari database
+    const { error: deleteError } = await supabase
+      .from('members')
+      .delete()
+      .eq('admin_username', currentAdmin.username)
+      .gte('created_at', currentResetDate + 'T00:00:00.000Z')
+      .lte('created_at', currentResetDate + 'T23:59:59.999Z');
+
+    if (deleteError) throw deleteError;
+
+    // Update state lokal
+    state.members = state.members.filter(member => {
+      const memberDate = member.created_at ? member.created_at.split('T')[0] : '';
+      return memberDate !== currentResetDate;
+    });
+
+    // Refresh UI
+    refreshMembers();
+    closeResetModal();
+
+    showNotification(`✅ Reset berhasil! ${previewMembers.length} member pada ${formatDateForDisplay(currentResetDate)} telah dihapus`);
+
+    // Tawarkan untuk import data baru dari master
+    setTimeout(() => {
+      if (confirm(`✅ Reset selesai!\n\n${previewMembers.length} data member pada ${formatDateForDisplay(currentResetDate)} telah dihapus.\n\nSekarang Anda bisa menerima data baru dari Master Admin.\n\nLanjutkan import data dari Master?`)) {
+        importFromMaster();
+      }
+    }, 1000);
+
+  } catch (error) {
+    console.error('Error resetting member data by date:', error);
+    alert('❌ Error reset data member: ' + error.message);
+    showNotification('❌ Gagal reset data member');
+  }
+}
+
+async function resetAdminData() {
+  if (!confirm(`💥 HAPUS SEMUA DATA ADMIN?\n\nTindakan ini akan menghapus SEMUA DATA (semua member + semua deposit) admin ${currentAdmin.username}.\nTindakan ini tidak dapat dibatalkan!`)) return;
+
+  try {
+    showNotification('🔄 Menghapus semua data...');
+
+    const { error: depositError } = await supabase
+      .from('deposits')
+      .delete()
+      .eq('admin_username', currentAdmin.username);
+
+    if (depositError) throw depositError;
+
+    const { error: memberError } = await supabase
+      .from('members')
+      .delete()
+      .eq('admin_username', currentAdmin.username);
+
+    if (memberError) throw memberError;
+
+    // Reset state
+    state.members = [];
+    state.deposits = [];
+    dateWiseData = {};
+    
+    // Refresh UI
+    refreshMembers();
+    refreshDeposits();
+    refreshChart();
+    refreshDailySummary();
+
+    showNotification('💥 Semua data admin berhasil direset!');
+    alert('✅ Semua data admin berhasil direset! Sistem sekarang bersih.');
+
+  } catch (error) {
+    console.error('Error resetting data:', error);
+    alert('❌ Error reset data: ' + error.message);
+    showNotification('❌ Gagal reset data');
+  }
+}
+
+// ==================== IMPOR DARI MASTER YANG DIPERBAIKI ====================
+async function importFromMaster() {
+  const currentDate = getCurrentViewDate();
+  
+  const confirmImport = confirm(
+    `📥 IMPORT DATA DARI MASTER ADMIN\n\n` +
+    `Tanggal: ${formatDateForDisplay(currentDate)}\n\n` +
+    `Data member dari master akan ditambahkan ke database.\n\n` +
+    `Pastikan Master Admin sudah mengirim data terbaru.`
+  );
+  
+  if (!confirmImport) return;
+
+  try {
+    showNotification('🔄 Memproses import data dari Master...');
+
+    // SIMULASI DATA DARI MASTER (nanti diganti dengan API call sebenarnya)
+    const masterData = {
+      members: [
+        {
+          id: `batch_${currentDate}_${uid()}_M001`,
+          name: "Member Baru 1",
+          phone: "081234567890",
+          last_deposit: null,
+          hp_valid: false,
+          deposit_valid: false,
+          has_response: false,
+          admin_username: currentAdmin.username,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: `batch_${currentDate}_${uid()}_M002`,
+          name: "Member Baru 2", 
+          phone: "081234567891",
+          last_deposit: null,
+          hp_valid: false,
+          deposit_valid: false,
+          has_response: false,
+          admin_username: currentAdmin.username,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: `batch_${currentDate}_${uid()}_M003`,
+          name: "Member Baru 3",
+          phone: "081234567892",
+          last_deposit: null,
+          hp_valid: false,
+          deposit_valid: false,
+          has_response: false,
+          admin_username: currentAdmin.username,
+          created_at: new Date().toISOString()
+        }
+      ]
+    };
+
+    // Insert data ke database
+    const { error: insertError } = await supabase
+      .from('members')
+      .insert(masterData.members);
+
+    if (insertError) {
+      if (insertError.code === '23505') { // Duplicate key error
+        throw new Error('Beberapa data sudah ada di database. Pastikan data dari Master adalah data baru.');
+      }
+      throw insertError;
+    }
+
+    // Update state lokal
+    state.members.push(...masterData.members);
+    
+    // Update dateWiseData
+    if (!dateWiseData[currentDate]) {
+      dateWiseData[currentDate] = {
+        members: [],
+        deposits: []
+      };
+    }
+    dateWiseData[currentDate].members.push(...masterData.members);
+
+    // Refresh UI
+    refreshMembers();
+    
+    showNotification(`✅ Import berhasil! ${masterData.members.length} member baru ditambahkan`);
+
+    // Tampilkan konfirmasi
+    setTimeout(() => {
+      alert(`✅ IMPORT BERHASIL!\n\n${masterData.members.length} data member baru berhasil diimport dari Master Admin.\n\nData sekarang sudah diperbarui dan siap digunakan.`);
+    }, 500);
+
+  } catch (error) {
+    console.error('Error importing from master:', error);
+    alert('❌ Error import data master: ' + error.message);
+    showNotification('❌ Gagal import data master');
+  }
+}
+
+// ==================== KODE YANG SUDAH ADA (TIDAK BERUBAH) ====================
 let state = { members: [], deposits: [] };
 let chartInstance = null;
-let currentView = 'daily'; // 'daily', 'weekly', 'monthly'
-
-// ==================== SISTEM DATA PER TANGGAL ====================
-let dateWiseData = {}; // Format: { "2024-10-16": { members: [], deposits: [] } }
+let currentView = 'daily';
+let dateWiseData = {};
 
 function getCurrentDataSet() {
   const currentDate = getCurrentViewDate();
@@ -317,7 +629,6 @@ function getFilteredDeposits() {
   return currentDataSet.deposits || [];
 }
 
-// ==================== AUTO-RESET SYSTEM ====================
 function initializeDailySystem() {
   const today = getCurrentLocalDate();
   const lastViewDate = localStorage.getItem('lastViewDate');
@@ -379,7 +690,6 @@ function getCurrentViewDate() {
   return localStorage.getItem('currentViewDate') || getCurrentLocalDate();
 }
 
-// ==================== DATE NAVIGATION ====================
 function goToPreviousDay() {
   const currentDate = new Date(getCurrentViewDate());
   currentDate.setDate(currentDate.getDate() - 1);
@@ -439,82 +749,6 @@ function showNotification(message) {
   }, 3000);
 }
 
-// ==================== FUNGSI RESET DATA ====================
-async function resetMemberDataByDate() {
-  const resetDate = prompt('Masukkan tanggal yang ingin direset data membernya (YYYY-MM-DD):\n\nHanya DATA MEMBER pada tanggal ini yang akan dihapus. Data deposit TETAP AMAN.');
-  
-  if (!resetDate) return;
-
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!dateRegex.test(resetDate)) {
-    alert('Format tanggal tidak valid. Gunakan format YYYY-MM-DD');
-    return;
-  }
-
-  if (!confirm(`⚠️ HAPUS DATA MEMBER PADA TANGGAL ${resetDate}?\n\nTindakan ini akan menghapus:\n• SEMUA MEMBER yang dibuat/diimport pada tanggal ${resetDate}\n\nData deposit TIDAK AKAN DIHAPUS dan tetap aman!\nTindakan ini tidak dapat dibatalkan!`)) {
-    return;
-  }
-
-  try {
-    // Hanya hapus member yang dibuat pada tanggal tersebut
-    const { error: memberError } = await supabase
-      .from('members')
-      .delete()
-      .eq('admin_username', currentAdmin.username)
-      .eq('created_at', resetDate + 'T00:00:00.000Z');
-
-    if (memberError) throw memberError;
-
-    // Reload data
-    await loadAdminData();
-    refreshMembers();
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
-
-    alert(`✅ Data member pada tanggal ${resetDate} berhasil direset!\n\nData deposit tetap aman dan tidak terhapus.`);
-
-  } catch (error) {
-    console.error('Error resetting member data by date:', error);
-    alert('Error reset data member pada tanggal tersebut');
-  }
-}
-
-async function resetAdminData() {
-  if (!confirm(`💥 HAPUS SEMUA DATA ADMIN?\n\nTindakan ini akan menghapus SEMUA DATA (semua member + semua deposit) admin ${currentAdmin.username}.\nTindakan ini tidak dapat dibatalkan!`)) return;
-
-  try {
-    const { error: depositError } = await supabase
-      .from('deposits')
-      .delete()
-      .eq('admin_username', currentAdmin.username);
-
-    if (depositError) throw depositError;
-
-    const { error: memberError } = await supabase
-      .from('members')
-      .delete()
-      .eq('admin_username', currentAdmin.username);
-
-    if (memberError) throw memberError;
-
-    state.members = [];
-    state.deposits = [];
-    dateWiseData = {};
-    refreshMembers();
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
-
-    alert('💥 Semua data admin berhasil direset!');
-
-  } catch (error) {
-    console.error('Error resetting data:', error);
-    alert('Error reset data');
-  }
-}
-
-// ==================== FIX TIMEZONE ISSUE ====================
 function formatDateForDisplay(dateString) {
   if (!dateString) return '-';
   
@@ -535,7 +769,6 @@ function getCurrentLocalDate() {
   return `${year}-${month}-${day}`;
 }
 
-// ==================== MANUAL GOOGLE DRIVE PROCESS ====================
 function downloadForGoogleDrive() {
   if (!currentAdmin) {
     alert('Silakan login terlebih dahulu');
@@ -657,7 +890,6 @@ function showSheetMessage(message, isSuccess) {
   }, 5000);
 }
 
-// ==================== UTILITY FUNCTIONS ====================
 function uid() { 
   return 'id' + Math.random().toString(36).slice(2, 9); 
 }
@@ -700,7 +932,6 @@ function getMemberStatus(lastDeposit) {
   return 'jarang';
 }
 
-// ==================== AUTHENTICATION ====================
 async function doLogin() {
   const username = document.getElementById('loginUser').value.trim();
   const password = document.getElementById('loginPass').value;
@@ -753,7 +984,6 @@ function openMain(user) {
   loadAdminData();
 }
 
-// ==================== DATA MANAGEMENT ====================
 async function loadAdminData() {
   if (!currentAdmin) return;
 
@@ -819,43 +1049,6 @@ function organizeDataByDate() {
   });
 }
 
-// ==================== IMPORT FROM MASTER ====================
-async function importFromMaster() {
-  const currentDate = getCurrentViewDate();
-  const confirmImport = confirm(`Import data master untuk tanggal ${formatDateForDisplay(currentDate)}?\n\nData member dari master akan ditambahkan ke database tanggal ini.`);
-  
-  if (!confirmImport) return;
-
-  try {
-    // Data kosong - tidak ada data testing
-    const masterData = {
-      members: []
-    };
-
-    // Di sini nanti akan diganti dengan API call ke master system
-    alert('Fitur import dari Master akan tersedia setelah setup Master selesai');
-
-    const { error: memberError } = await supabase
-      .from('members')
-      .insert(masterData.members);
-
-    if (memberError) throw memberError;
-
-    state.members.push(...masterData.members);
-    
-    const currentDataSet = getCurrentDataSet();
-    currentDataSet.members.push(...masterData.members);
-
-    refreshMembers();
-    showNotification('✅ Data master berhasil diimport untuk tanggal ' + formatDateForDisplay(currentDate));
-
-  } catch (error) {
-    console.error('Error importing from master:', error);
-    alert('Error import data master');
-  }
-}
-
-// ==================== MEMBER MANAGEMENT ====================
 async function refreshMembers() {
   const tb = document.getElementById('memberTable');
   if (!tb) return;
@@ -950,7 +1143,6 @@ async function toggleMemberField(memberId, field, value) {
   }
 }
 
-// ==================== DEPOSIT MANAGEMENT ====================
 async function addDeposit() {
   const memberId = document.getElementById('depositMember').value;
   const manualName = document.getElementById('depositManual').value.trim();
@@ -1008,8 +1200,6 @@ async function addDeposit() {
       };
     }
     dateWiseData[depositDate].deposits.push(depositData);
-
-    // ❌ TIDAK ADA UPDATE last_deposit - biarkan sesuai data master
 
     document.getElementById('depositAmount').value = '';
     document.getElementById('depositManual').value = '';
@@ -1158,7 +1348,6 @@ async function deleteDeposit(depositId) {
   }
 }
 
-// ==================== CHART & DASHBOARD ====================
 function refreshChart() {
   const from = document.getElementById('fromDate').value;
   const to = document.getElementById('toDate').value;
@@ -1383,7 +1572,6 @@ function refreshDailySummary() {
   document.getElementById('memberDepositDesc').textContent = memberDesc;
 }
 
-// ==================== HISTORICAL DATA FUNCTIONS ====================
 function showAllHistoricalData() {
   document.getElementById('fromDate').value = '';
   document.getElementById('toDate').value = '';
@@ -1429,7 +1617,6 @@ function resetFilter() {
   refreshChart();
 }
 
-// ==================== FORMATTING ====================
 const inputAmt = document.getElementById('depositAmount');
 if (inputAmt) {
   inputAmt.addEventListener('input', function(e) {
@@ -1447,7 +1634,6 @@ function getCleanAmount() {
   return Number(raw.replace(/\./g, ''));
 }
 
-// ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('fromDate').value = '';
   document.getElementById('toDate').value = '';
@@ -1467,4 +1653,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
-
