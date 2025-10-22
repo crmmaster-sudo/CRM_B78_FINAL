@@ -415,7 +415,12 @@ function navigateToDate(targetDate) {
 }
 
 function showNotification(message) {
+  // Hapus notifikasi sebelumnya jika ada
+  const existingNotifications = document.querySelectorAll('.custom-notification');
+  existingNotifications.forEach(notif => notif.remove());
+
   const notification = document.createElement('div');
+  notification.className = 'custom-notification';
   notification.style.cssText = `
     position: fixed;
     top: 20px;
@@ -427,7 +432,8 @@ function showNotification(message) {
     z-index: 1000;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     font-size: 14px;
-    max-width: 300px;
+    max-width: 400px;
+    word-wrap: break-word;
   `;
   notification.textContent = message;
   document.body.appendChild(notification);
@@ -436,10 +442,10 @@ function showNotification(message) {
     if (notification.parentNode) {
       document.body.removeChild(notification);
     }
-  }, 3000);
+  }, 5000);
 }
 
-// ==================== FUNGSI RESET DATA ====================
+// ==================== FUNGSI RESET DATA - FIXED ====================
 async function resetMemberDataByDate() {
   const resetDate = prompt('Masukkan tanggal yang ingin direset data membernya (YYYY-MM-DD):\n\nHanya DATA MEMBER pada tanggal ini yang akan dihapus. Data deposit TETAP AMAN.');
   
@@ -456,7 +462,7 @@ async function resetMemberDataByDate() {
   }
 
   try {
-    // Hanya hapus member yang dibuat pada tanggal tersebut
+    // 1. Hapus dari database
     const { error: memberError } = await supabase
       .from('members')
       .delete()
@@ -465,18 +471,14 @@ async function resetMemberDataByDate() {
 
     if (memberError) throw memberError;
 
-    // Reload data
+    // 2. LOAD DATA FRESH dari database - INI YANG PALING PENTING
     await loadAdminData();
-    refreshMembers();
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
 
-    alert(`✅ Data member pada tanggal ${resetDate} berhasil direset!\n\nData deposit tetap aman dan tidak terhapus.`);
+    showNotification(`✅ Data member pada tanggal ${resetDate} berhasil direset! Data deposit tetap aman.`);
 
   } catch (error) {
     console.error('Error resetting member data by date:', error);
-    alert('Error reset data member pada tanggal tersebut');
+    showNotification('❌ Error reset data member: ' + error.message);
   }
 }
 
@@ -498,19 +500,22 @@ async function resetAdminData() {
 
     if (memberError) throw memberError;
 
+    // Reset state lengkap
     state.members = [];
     state.deposits = [];
     dateWiseData = {};
+    
+    // Refresh semua tampilan
     refreshMembers();
     refreshDeposits();
     refreshChart();
     refreshDailySummary();
 
-    alert('💥 Semua data admin berhasil direset!');
+    showNotification('💥 Semua data admin berhasil direset!');
 
   } catch (error) {
     console.error('Error resetting data:', error);
-    alert('Error reset data');
+    showNotification('❌ Error reset data: ' + error.message);
   }
 }
 
@@ -774,9 +779,11 @@ async function loadAdminData() {
 
     if (depositsError) throw depositsError;
 
+    // RESET STATE SEBELUM LOAD DATA BARU
     state.members = allMembers || [];
     state.deposits = allDeposits || [];
 
+    // REORGANIZE DATA DENGAN BENAR
     organizeDataByDate();
 
     document.getElementById('fromDate').value = '';
@@ -788,14 +795,19 @@ async function loadAdminData() {
     refreshChart();
     refreshDailySummary();
 
+    showNotification('✅ Data berhasil dimuat');
+
   } catch (error) {
     console.error('Error loading data:', error);
+    showNotification('❌ Error memuat data: ' + error.message);
   }
 }
 
 function organizeDataByDate() {
+  // RESET dateWiseData SEBELUM REORGANIZE
   dateWiseData = {};
   
+  // Organize deposits by date
   state.deposits.forEach(deposit => {
     if (!dateWiseData[deposit.date]) {
       dateWiseData[deposit.date] = {
@@ -806,6 +818,7 @@ function organizeDataByDate() {
     dateWiseData[deposit.date].deposits.push(deposit);
   });
   
+  // Organize members by creation date
   state.members.forEach(member => {
     const memberDate = member.created_at ? member.created_at.split('T')[0] : getCurrentLocalDate();
     
@@ -841,17 +854,14 @@ async function importFromMaster() {
 
     if (memberError) throw memberError;
 
-    state.members.push(...masterData.members);
-    
-    const currentDataSet = getCurrentDataSet();
-    currentDataSet.members.push(...masterData.members);
+    // LOAD DATA FRESH setelah import
+    await loadAdminData();
 
-    refreshMembers();
     showNotification('✅ Data master berhasil diimport untuk tanggal ' + formatDateForDisplay(currentDate));
 
   } catch (error) {
     console.error('Error importing from master:', error);
-    alert('Error import data master');
+    showNotification('❌ Error import data master: ' + error.message);
   }
 }
 
@@ -947,6 +957,7 @@ async function toggleMemberField(memberId, field, value) {
     }
   } catch (error) {
     console.error('Error updating member:', error);
+    showNotification('❌ Error update member: ' + error.message);
   }
 }
 
@@ -999,33 +1010,19 @@ async function addDeposit() {
 
     if (error) throw error;
 
-    state.deposits.push(depositData);
-    
-    if (!dateWiseData[depositDate]) {
-      dateWiseData[depositDate] = {
-        members: [],
-        deposits: []
-      };
-    }
-    dateWiseData[depositDate].deposits.push(depositData);
-
-    // ❌ TIDAK ADA UPDATE last_deposit - biarkan sesuai data master
+    // LOAD DATA FRESH setelah menambah deposit
+    await loadAdminData();
 
     document.getElementById('depositAmount').value = '';
     document.getElementById('depositManual').value = '';
     document.getElementById('depositMember').value = '';
     document.getElementById('depositDate').value = '';
 
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
-    refreshMembers();
-
-    alert('Deposit berhasil ditambahkan!');
+    showNotification('✅ Deposit berhasil ditambahkan!');
 
   } catch (error) {
     console.error('Error adding deposit:', error);
-    alert('Error menambahkan deposit');
+    showNotification('❌ Error menambahkan deposit: ' + error.message);
   }
 }
 
@@ -1116,20 +1113,12 @@ async function editDeposit(depositId) {
 
     if (error) throw error;
 
-    deposit.amount = cleanAmount;
-    if (newDate) {
-      deposit.date = newDate;
-    }
-
-    organizeDataByDate();
-
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
+    // LOAD DATA FRESH setelah edit
+    await loadAdminData();
 
   } catch (error) {
     console.error('Error editing deposit:', error);
-    alert('Error mengedit deposit');
+    showNotification('❌ Error mengedit deposit: ' + error.message);
   }
 }
 
@@ -1145,16 +1134,12 @@ async function deleteDeposit(depositId) {
 
     if (error) throw error;
 
-    state.deposits = state.deposits.filter(d => d.id !== depositId);
-    organizeDataByDate();
-
-    refreshDeposits();
-    refreshChart();
-    refreshDailySummary();
+    // LOAD DATA FRESH setelah hapus
+    await loadAdminData();
 
   } catch (error) {
     console.error('Error deleting deposit:', error);
-    alert('Error menghapus deposit');
+    showNotification('❌ Error menghapus deposit: ' + error.message);
   }
 }
 
